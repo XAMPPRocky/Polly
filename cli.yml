@@ -1,0 +1,16 @@
+bin_name: Poly
+name: Poly
+version: 0.0.1
+author: Aaron P. <theaaronepower@gmail.com>
+about: The poly templating language compiler
+args:
+  - input:
+      index: 1
+      multiple: true
+      required: true
+      help: The input file(s). If given multiple will print out each to stdout.
+  - files:
+      short: f
+      long: file
+      takes_value: true
+      help: Will compile to the destination.

@@ -2,3 +2,14 @@
 name = "poly"
 version = "0.1.0"
 authors = ["Aaronepower <theaaronepower@gmail.com>"]
+
+[lib]
+name = "poly"
+path = "src/lib.rs"
+
+[[bin]]
+name = "poly"
+path = "src/bin.rs"
+
+[dependencies]
+clap = {version = "*", features = ["yaml"]}
