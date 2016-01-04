@@ -54,8 +54,8 @@ impl<'a> Codegen<'a> {
 
     fn render(&self, token: &Result<Token>) -> Option<String> {
         use ast::Token::*;
-        match token.clone() {
-            Ok(Html(_, element)) => {
+        match token {
+            &Ok(Html(_, ref element)) => {
                 use std::io::Write;
                 let mut html = Vec::new();
                 let tag = &**element.tag();
@@ -121,17 +121,18 @@ impl<'a> Codegen<'a> {
 
                 Some(String::from_utf8(html).unwrap())
             }
-            Ok(Text(_, text)) => Some(text),
-            Ok(Variable(index, variable)) => {
-                match self.symbol_map.get(&*variable) {
+            &Ok(Text(_, ref text)) => Some(text.clone()),
+            &Ok(Variable(_, ref variable)) => {
+                match self.symbol_map.get(&**variable) {
                     Some(value) => Some(String::from(*value)),
                     None => Some("".to_owned()),
                 }
             }
-            Ok(EndofLine) => Some(String::from("")),
-            Err(error) => {
+            &Ok(Endofline) => Some(String::from("")),
+            &Ok(_) => Some(String::from("")),
+            &Err(ref error) => {
                 use ast::AstError::*;
-                let index = match error {
+                let index = match *error {
                     Eof => return None,
                     ExpectedVariable(value) => value,
                     InvalidToken(value) => value,
@@ -162,7 +163,8 @@ impl<'a> Codegen<'a> {
                     }
                 }
 
-                panic!("{}: {:>5?}\n{:>10}", self.file, error, section);
+                println!("\n{}: {:>5?}\n{:>10}", self.file, error, section);
+                None
             }
         }
     }

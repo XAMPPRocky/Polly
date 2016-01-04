@@ -10,7 +10,7 @@ pub enum Token {
     /// TODO
     Variable(usize, String),
     /// Newline
-    EndOfLine,
+    Endofline,
     /// TODO
     Blank,
     /// TODO

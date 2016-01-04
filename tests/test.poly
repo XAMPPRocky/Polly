@@ -1,0 +1,57 @@
+/!DOCTYPE(html)
+/html(lang="en") {
+	/head {
+		/meta(charset="UTF-8")
+		/meta(name="viewport" content="width=device-width, initial-scale=1")
+		/title{The Newspaper}
+		/link(href='https://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,400italic,600italic|Playfair+Display:400,400italic,700,700italic,900' rel='stylesheet' type='text/css')
+		/link(rel="stylesheet" href="css/normalize.css")
+		/link(rel="stylesheet" href="css/bootstrap.css")
+		/link(rel="stylesheet" href="css/style.css")
+	}
+	/body {
+		/div.container {
+			/div.row {
+				/a(href="index.html") {
+					/h1.text-center.title.col-xs-12 {
+						The Magazine
+					}
+				}
+			}
+			/div.row {
+				/div.col-xs-12 {
+					/hr.red-border()
+				}
+			}
+			/div.row {
+				/ul.list-inline.fill-horizontal.col-xs-12 {
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){News}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Culture}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Fiction}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Tech}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Trade}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Humor}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Politics}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Magazine}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Video}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Cartoons}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Archive}}
+					/li.text-center.text-uppercase.small-bold.hidden-xs.hidden-sm {/a.red-hover(href="article.html"){Search}}
+				}
+			}
+			/div.row {
+				/div.col-xs-12 {
+					/hr.thin-line.red-border.invisible()
+				}
+				/div.col-xs-12.col-md-6 {
+					/a(href="article.html") {
+						/span.col-xs-12.text-center.text-uppercase.small-bold.red {
+							Politics
+						}
+					}
+				}
+
+			}
+		}
+	}
+}

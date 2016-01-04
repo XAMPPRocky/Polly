@@ -245,7 +245,7 @@ impl Parser {
                         }
                         Word(index, text) => element.add_text(index, text),
 
-                        token => return Err(UnexpectedToken(index)),
+                        _ => return Err(UnexpectedToken(index)),
                     }
                 }
                 Ok(Html(index, element))
@@ -260,7 +260,7 @@ impl Parser {
                     None => Err(Eof),
                 }
             }
-            Some(Operator(_, Newline)) => Ok(EndOfLine),
+            Some(Operator(_, Newline)) => Ok(Endofline),
             // Some(Operator(index, Quote)) => {
             //     let mut section = String::new();
             //
