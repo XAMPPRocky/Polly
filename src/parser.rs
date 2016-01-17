@@ -1,13 +1,15 @@
 use std::result;
 use std::iter::Peekable;
-use lexer::{Lexer, Lexeme};
-use lexer::Lexeme::*;
-use operator::Operator::*;
-use element::Element;
+use std::vec::IntoIter;
+
 use ast::{Token, AstError};
 use ast::Token::*;
 use ast::AstError::*;
-use std::vec::IntoIter;
+use element::Element;
+use lexeme::Lexeme;
+use lexeme::Lexeme::*;
+use lexer::Lexer;
+use operator::Operator::*;
 
 /// Shortens Result<T, AstError> to Result<T>.
 pub type Result<T> = result::Result<T, AstError>;
@@ -68,6 +70,7 @@ impl Parser {
     }
     /// Output result vector
     pub fn output(&self) -> Vec<Result<Token>> {
+        // Need to figure out a way to not clone the vector
         self.output.to_vec()
     }
 
@@ -85,55 +88,40 @@ impl Parser {
                             text.push_str(&*peek_text);
                             let _ = self.take();
                         }
-                        _ => return Ok(Text(index, text)),
+                        _ => return Ok(Text(text)),
                     }
                 }
             }
             // If we find a variable, we expect a word after it.
             Some(Operator(index, At)) => {
                 match self.take() {
-                    Some(Word(_, text)) => Ok(Variable(index, text)),
-                    _ => Err(ExpectedVariable(index)),
+                    Some(Word(index, text)) => {
+                        while let Some(Operator(index, Dot)) = self.peek() {
+                            let _ = self.take();
+                            text.push('.');
+
+                            match self.take() {
+                                Some(Word(_, member)) => text.push_str(&*member),
+                                Some(unexpected_token) => {
+                                    return Err(ExpectedVariable(unexpected_token))
+                                }
+                                None => return Err(UnexpectedEof(Operator(index, Dot))),
+                            }
+                        }
+                        Ok(Variable(text))
+                    }
+                    Some(unexpected_token) => Err(ExpectedVariable(unexpected_token)),
+                    None => Err(UnexpectedEof(Operator(index, At))),
                 }
             }
             // All the operations for creating an element.
             Some(Operator(index, ForwardSlash)) => {
-                // checking if the forward slash was used for a comment.
-                match self.peek() {
-                    Some(Operator(index, ref op @ ForwardSlash)) |
-                    Some(Operator(index, ref op @ Star)) => {
-                        let _ = self.take();
-                        let is_single = if *op == ForwardSlash {
-                            true
-                        } else {
-                            false
-                        };
-                        let mut comment = String::new();
-                        while let Some(token) = self.take() {
-                            match token {
-                                Operator(_, Newline) if is_single => break,
-                                Operator(_, Star) if !is_single => {
-                                    if let Some(token) = self.take() {
-                                        match token {
-                                            Operator(_, ForwardSlash) => break,
-                                            Operator(_, op) => comment.push_str(&*op.to_string()),
-                                            Word(_, text) => comment.push_str(&*text),
-                                        }
-                                    }
-                                }
-                                Operator(_, op) => comment.push_str(&*op.to_string()),
-                                Word(_, text) => comment.push_str(&*text),
-                            }
-                        }
-                        return Ok(Comment(index, comment));
-                    }
-                    Some(_) => {}
-                    _ => return Err(Eof),
-                }
-
                 let tag = match self.take() {
                     Some(Word(_, text)) => text,
-                    _ => return Err(InvalidToken(index)),
+                    Some(operator) => {
+                        return Err(InvalidElement(operator));
+                    }
+                    None => return Err(UnexpectedEof(Operator(index, ForwardSlash))),
                 };
                 let mut element = Element::new(tag.trim().to_owned());
 
@@ -143,7 +131,10 @@ impl Parser {
                         Operator(index, At) => {
                             match self.take() {
                                 Some(Word(_, id)) => element.add_resource(id),
-                                _ => return Err(ExpectedVariable(index)),
+                                Some(unexpected_token) => {
+                                    return Err(ExpectedVariable(unexpected_token))
+                                }
+                                None => return Err(UnexpectedEof(Operator(index, At))),
                             }
                         }
                         Operator(index, OpenParam) => {
@@ -152,7 +143,7 @@ impl Parser {
                                     Operator(_, CloseParam) => {
                                         match self.peek() {
                                             Some(Operator(_, OpenBrace)) => break,
-                                            _ => return Ok(Html(index, element)),
+                                            _ => return Ok(Html(element)),
                                         }
                                     }
                                     Word(_, key) => {
@@ -172,37 +163,52 @@ impl Parser {
                                                                 Operator(_, operator) => {
                                                                     value.push_str(&*operator.to_string())
                                                                 }
+                                                                Empty => {}
                                                             }
                                                         }
                                                         value
                                                     }
-                                                    Some(_) => {
-                                                        return Err(InvalidTokenInAttributes(index));
+                                                    Some(unexpected_token) => {
+                                                        return Err(InvalidTokenInAttributes(unexpected_token));
                                                     }
-                                                    None => return Err(UnexpectedEof),
+                                                    None => {
+                                                        return Err(UnexpectedEof(Operator(index,
+                                                                                          Equals)));
+                                                    }
                                                 }
                                             }
                                             Some(Word(_, _)) => String::from(""),
                                             Some(Operator(_, CloseParam)) => String::from(""),
-                                            _ => return Err(InvalidTokenInAttributes(index)),
+                                            Some(invalid_token) => {
+                                                return Err(InvalidTokenInAttributes(invalid_token))
+                                            }
+                                            None => return Err(UnexpectedEof(Word(index, key))),
                                         };
 
                                         element.add_attribute(key, value);
                                     }
-                                    _ => return Err(InvalidTokenInAttributes(index)),
+                                    invalid_token => {
+                                        return Err(InvalidTokenInAttributes(invalid_token))
+                                    }
                                 }
                             }
                         }
                         Operator(index, Dot) => {
                             match self.take() {
                                 Some(Word(_, class)) => element.add_class(class),
-                                _ => return Err(NoNameAttachedToClass(index)),
+                                Some(unexpected_token) => {
+                                    return Err(NoNameAttachedToClass(unexpected_token))
+                                }
+                                None => return Err(UnexpectedEof(Operator(index, Dot))),
                             }
                         }
                         Operator(index, Pound) => {
                             match self.take() {
                                 Some(Word(_, id)) => element.add_attribute(String::from("id"), id),
-                                _ => return Err(NoNameAttachedToId(index)),
+                                Some(unexpected_token) => {
+                                    return Err(NoNameAttachedToId(unexpected_token))
+                                }
+                                None => return Err(UnexpectedEof(Operator(index, Pound))),
                             }
                         }
                         Operator(_, OpenBrace) => {
@@ -243,60 +249,26 @@ impl Parser {
                             }
                             break;
                         }
-                        Word(index, text) => element.add_text(index, text),
+                        Word(_, text) => element.add_text(text),
 
-                        _ => return Err(UnexpectedToken(index)),
+                        unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                     }
                 }
-                Ok(Html(index, element))
+                Ok(Html(element))
             }
             Some(Operator(index, BackSlash)) => {
                 match self.peek() {
                     Some(Operator(_, ref operator)) => {
                         let _ = self.take();
-                        Ok(Text(index, operator.to_string()))
+                        Ok(Text(operator.to_string()))
                     }
-                    Some(_) => Ok(Text(index, BackSlash.to_string())),
+                    Some(_) => Ok(Text(BackSlash.to_string())),
                     None => Err(Eof),
                 }
             }
-            Some(Operator(_, Newline)) => Ok(Endofline),
-            // Some(Operator(index, Quote)) => {
-            //     let mut section = String::new();
-            //
-            //     loop {
-            //
-            //         match self.peek() {
-            //             Some(Operator(_, Quote)) => break,
-            //             Some(Operator(_, operator)) => section.push_str(&*operator.to_string()),
-            //             Some(Word(_, word)) => section.push_str(&*word),
-            //             None => return Err(UnexpectedEof),
-            //         };
-            //     }
-            //     Ok(Text(index, section))
-            // }
-            Some(Operator(index, operator)) => Ok(Text(index, operator.to_string())),
+            Some(Operator(index, operator)) => Ok(Text(operator.to_string())),
+            Some(Empty) => unreachable!(),
             None => Err(Eof),
         }
-    }
-}
-
-mod tests {
-    use super::*;
-    use lexer::*;
-    #[test]
-    fn parse() {
-        use std::io::Read;
-        use std::fs::File;
-        let file_path = "./tests/static_site.poly";
-        let mut file = File::open(file_path).unwrap();
-        let mut contents = String::new();
-        let _ = file.read_to_string(&mut contents);
-        // println!("{:?}", contents);
-        let lexer = Lexer::lex(&*contents);
-        let parser = Parser::from_lexer(&lexer);
-
-        // println!("{:#?}", parser.output());
-        assert!(true);
     }
 }

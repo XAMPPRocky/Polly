@@ -13,3 +13,6 @@ path = "src/bin.rs"
 
 [dependencies]
 clap = {version = "*", features = ["yaml"]}
+serde = "*"
+serde_json = "*"
+lazy_static = "*"

@@ -13,7 +13,10 @@ fn main() {
     let paths = matches.values_of("input").unwrap();
 
     for path in paths {
-        if metadata(path).ok().expect("Couldn't get metadata for file").is_file() {
+        if metadata(path)
+               .ok()
+               .expect("Couldn't find file, please make sure your path is correct.")
+               .is_file() {
             use std::io::Read;
             let mut file = File::open(path).ok().expect("This file couldn't be opened");
             let mut contents = String::new();

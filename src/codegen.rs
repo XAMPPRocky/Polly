@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::result;
+use std::process;
 
 use ast::{Token, AstError};
 use lexer::Lexer;
@@ -14,19 +15,6 @@ pub struct Codegen<'a> {
 }
 
 impl<'a> Codegen<'a> {
-    fn new(elements: Vec<Result<Token>>,
-           source: &'a str,
-           file: &'a str,
-           symbol_map: HashMap<&'a str, &'a str>)
-           -> Self {
-        Codegen {
-            elements: elements,
-            source: source,
-            file: file,
-            symbol_map: symbol_map,
-        }
-    }
-
     fn from_parser(parser: &'a Parser, file: &'a str, source: &'a str) -> Self {
         Codegen {
             elements: parser.output(),
@@ -59,36 +47,41 @@ impl<'a> Codegen<'a> {
                 use std::io::Write;
                 let mut html = Vec::new();
                 let tag = &**element.tag();
-                let _ = write!(&mut html, "<{tag}", tag = tag);
+                write!(&mut html, "<{tag}", tag = tag).ok().expect("Couldn't write to html file");
 
                 if !element.classes().is_empty() {
-                    let _ = write!(&mut html, " class=\"");
+                    write!(&mut html, " class=\"").ok().expect("Couldn't write to html file");
                     let mut classes_iter = element.classes().iter();
-                    let _ = write!(&mut html, "{}", classes_iter.next().unwrap());
+                    write!(&mut html, "{}", classes_iter.next().unwrap())
+                        .ok()
+                        .expect("Couldn't write to html file");
                     for class in classes_iter {
                         if !class.is_empty() {
-                            let _ = write!(&mut html, " {}", &*class);
+                            write!(&mut html, " {}", &*class)
+                                .ok()
+                                .expect("Couldn't write to html file");
                         }
                     }
-                    let _ = write!(&mut html, "\"");
+                    write!(&mut html, "\"").ok().expect("Couldn't write to html file");
                 }
 
                 if !element.attributes().is_empty() {
                     for (key, value) in element.attributes() {
                         if !key.is_empty() {
                             if !value.is_empty() {
-                                let _ = write!(&mut html,
-                                               " {key}=\"{value}\"",
-                                               key = key,
-                                               value = value);
+                                write!(&mut html, " {key}=\"{value}\"", key = key, value = value)
+                                    .ok()
+                                    .expect("Couldn't write to html file");
                             } else {
-                                let _ = write!(&mut html, " {}", key);
+                                write!(&mut html, " {}", key)
+                                    .ok()
+                                    .expect("Couldn't write to html file");
                             }
                         }
                     }
                 }
 
-                let _ = write!(&mut html, ">");
+                write!(&mut html, ">").ok().expect("Couldn't write to html file");
 
 
                 const VOID_ELEMENTS: [&'static str; 13] = ["area", "base", "br", "col", "hr",
@@ -105,19 +98,23 @@ impl<'a> Codegen<'a> {
                 if let &Some(ref resource) = element.resource() {
                     match self.symbol_map.get(&**resource) {
                         Some(value) => {
-                            let _ = write!(&mut html, "{}", Codegen::codegen(value, &*resource));
+                            write!(&mut html, "{}", Codegen::codegen(value, &*resource))
+                                .ok()
+                                .expect("Couldn't write to html file");
                         }
                         None => (),
                     }
                 } else {
                     for child in element.children() {
                         if let Some(rendered_child) = self.render(child) {
-                            let _ = write!(&mut html, "{}", rendered_child);
+                            write!(&mut html, "{}", rendered_child)
+                                .ok()
+                                .expect("Couldn't write to html file");
                         }
                     }
                 }
 
-                let _ = write!(&mut html, "</{tag}>", tag = tag);
+                write!(&mut html, "</{tag}>", tag = tag).ok().expect("Couldn't write to html file");
 
                 Some(String::from_utf8(html).unwrap())
             }
@@ -128,23 +125,38 @@ impl<'a> Codegen<'a> {
                     None => Some("".to_owned()),
                 }
             }
-            &Ok(Endofline) => Some(String::from("")),
-            &Ok(_) => Some(String::from("")),
+            &Ok(Blank) => unreachable!(),
             &Err(ref error) => {
                 use ast::AstError::*;
-                let index = match *error {
+                let (index, token_length) = match *error {
                     Eof => return None,
-                    ExpectedVariable(value) => value,
-                    InvalidToken(value) => value,
-                    InvalidTokenInAttributes(value) => value,
-                    NoNameAttachedToClass(value) => value,
-                    NoNameAttachedToId(value) => value,
-                    UnclosedCloseBraces(value) => value,
-                    UnclosedOpenBraces(value) => value,
-                    UnexpectedEof => panic!("Unexpected End of file"),
-                    UnexpectedToken(value) => value,
+                    ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),
+                    InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
+                    InvalidTokenAfterEqualsAttributes(ref lexeme) => {
+                        (lexeme.index(), lexeme.length())
+                    }
+                    InvalidTokenAfterWordInAttributes(ref lexeme) => {
+                        (lexeme.index(), lexeme.length())
+                    }
+                    InvalidTokenInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
+                    NoNameAttachedToClass(ref lexeme) => (lexeme.index(), lexeme.length()),
+                    NoNameAttachedToId(ref lexeme) => (lexeme.index(), lexeme.length()),
+                    UnclosedCloseBraces(index) => (index, 1),
+                    UnclosedOpenBraces(index) => (index, 1),
+                    UnexpectedEof(ref lexeme) => (lexeme.index(), lexeme.length()),
+                    UnexpectedToken(ref lexeme) => (lexeme.index(), lexeme.length()),
                 };
                 let mut line_number: usize = 0;
+                let mut col_number: usize = 1;
+
+                for ch in self.source[..index].chars() {
+                    col_number += 1;
+                    if ch == '\n' {
+                        line_number += 1;
+                        col_number = 1;
+                    }
+                }
+
                 let mut section = String::new();
                 for ch in self.source[..index].chars().rev() {
                     if ch == '\n' {
@@ -162,9 +174,20 @@ impl<'a> Codegen<'a> {
                         section.push(ch);
                     }
                 }
+                println!("");
+                let mut underline = String::from("^");
 
-                println!("\n{}: {:>5?}\n{:>10}", self.file, error, section);
-                None
+                for _ in 1..token_length {
+                    underline.push('~');
+                }
+                let file_name_print = format!("{}:{}:{}:", self.file, line_number, col_number);
+                println!("{} {}", file_name_print, error);
+                println!("{} {}", file_name_print, section.trim());
+                println!("{0:>1$}",
+                         underline,
+                         col_number + 3 + file_name_print.len() -
+                         (section.len() - section.trim().len()));
+                process::exit(0);
             }
         }
     }
@@ -175,22 +198,17 @@ mod tests {
 
     #[test]
     fn test_codegen() {
-
         use super::Codegen;
-        use std::io::Read;
         use std::fs::File;
-        let poly_path = "./tests/static.min.poly";
-        let html_path = "./tests/static.min.html";
-        let mut poly = File::open("./tests/static_site.poly").unwrap();
-        let mut poly_contents = String::new();
-        let _ = poly.read_to_string(&mut poly_contents);
+        use std::io::Read;
+        let file_name = "./tests/index.poly";
+        let mut file = File::open(file_name)
+                           .ok()
+                           .expect("File doesn't exist, or isn't a file.");
+        let mut file_contents = String::new();
+        file.read_to_string(&mut file_contents).ok().expect("File contents corrupted");
 
-        // let mut html = File::open(html_path).unwrap();
-        // let mut html_contents = String::new();
-        // let _ = html.read_to_string(&mut html_contents);
-        let result = Codegen::codegen(&*poly_contents, poly_path);
-        println!("{}", result);
-        assert!(true);
-        // assert_eq!(html_contents, poly_contents);
+        let html = Codegen::codegen(&*file_contents, file_name);
+        assert!(!html.is_empty());
     }
 }

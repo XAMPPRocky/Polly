@@ -7,7 +7,7 @@ use ast::AstError;
 pub type Result<T> = result::Result<T, AstError>;
 
 /// TODO
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone)]
 pub struct Element {
     tag: String,
     classes: Vec<String>,
@@ -81,12 +81,12 @@ impl Element {
 
         if key == "class" {
             self.classes.push(value);
-        } else if let Some(prev_value) = self.attributes.insert(key, value) {
+        } else if let Some(prev_value) = self.attributes.insert(key.trim().to_owned(), value) {
             panic!("Attribute already exists! Old value: {:?}", prev_value);
         }
     }
     /// TODO
-    pub fn add_text(&mut self, index: usize, text: String) {
-        self.children.push(Ok(Token::Text(index, text)));
+    pub fn add_text(&mut self, text: String) {
+        self.children.push(Ok(Token::Text(text)));
     }
 }

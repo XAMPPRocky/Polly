@@ -4,18 +4,19 @@
         unused_import_braces, unused_qualifications)]
 //! The Poly parser.
 
+#[macro_use]
+extern crate lazy_static;
+extern crate serde;
+extern crate serde_json;
 
-/// All the lexer stuff
-pub mod lexer;
-/// All the parser stuff
-pub mod parser;
+mod args;
+mod ast;
 /// All the codgen stuff
 pub mod codegen;
-/// All the token stuff
-pub mod element;
-/// All the operator stuff
-pub mod operator;
-/// All the operator stuff
-pub mod consts;
-/// All the operator stuff
-pub mod ast;
+mod consts;
+mod element;
+mod lexeme;
+mod lexer;
+mod operator;
+mod parser;
+mod template;

@@ -1,6 +1,5 @@
 bin_name: Poly
 name: Poly
-version: 0.0.1
 author: Aaron P. <theaaronepower@gmail.com>
 about: The poly templating language compiler
 args:
@@ -9,7 +8,7 @@ args:
       multiple: true
       required: true
       help: The input file(s). If given multiple will print out each to stdout.
-  - files:
+  - file:
       short: f
       long: file
       takes_value: true
