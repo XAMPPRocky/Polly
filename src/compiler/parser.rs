@@ -2,23 +2,21 @@ use std::result;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use ast::{Token, AstError};
-use ast::Token::*;
-use ast::AstError::*;
-use element::Element;
-use lexeme::Lexeme;
-use lexeme::Lexeme::*;
-use lexer::Lexer;
-use operator::Operator::*;
+use super::lexer::Lexer;
+use super::tokens::*;
+use super::tokens::AstError::*;
+use super::tokens::Lexeme::*;
+use super::tokens::Operator::*;
+use super::tokens::Token::*;
 
 /// Shortens Result<T, AstError> to Result<T>.
-pub type Result<T> = result::Result<T, AstError>;
+pub type AstResult = result::Result<Token, AstError>;
 
 /// The struct detailing the parser itself.
 // #[derive(Debug)]
 pub struct Parser {
     input: Peekable<IntoIter<Lexeme>>,
-    output: Vec<Result<Token>>,
+    output: Vec<AstResult>,
 }
 
 impl Parser {
@@ -54,7 +52,7 @@ impl Parser {
         parser
     }
 
-    fn push(&mut self, token: Result<Token>) {
+    fn push(&mut self, token: AstResult) {
         self.output.push(token);
     }
 
@@ -69,12 +67,25 @@ impl Parser {
         }
     }
     /// Output result vector
-    pub fn output(&self) -> Vec<Result<Token>> {
+    pub fn output(&self) -> Vec<AstResult> {
         // Need to figure out a way to not clone the vector
         self.output.to_vec()
     }
 
-    fn parse_token(&mut self) -> Result<Token> {
+    fn read_leading_quotes(&mut self) -> String {
+        let mut value = String::new();
+        while let Some(token) = self.take() {
+            match token {
+                Op(_, Quote) => break,
+                Word(_, text) => value.push_str(&*text),
+                Op(_, operator) => value.push_str(&*operator.to_string()),
+                Empty => {}
+            }
+        }
+        value
+    }
+
+    fn parse_token(&mut self) -> AstResult {
 
         match self.take() {
             // concatenate all the word tokens that are adjacent to each other into a single "Text"
@@ -93,92 +104,88 @@ impl Parser {
                 }
             }
             // If we find a variable, we expect a word after it.
-            Some(Operator(index, At)) => {
+            Some(Op(index, At)) => {
                 match self.take() {
                     Some(Word(index, text)) => {
-                        while let Some(Operator(index, Dot)) = self.peek() {
+                        let mut new_text = text.clone();
+                        while let Some(Op(_, Dot)) = self.peek() {
                             let _ = self.take();
-                            text.push('.');
+                            new_text.push('.');
 
                             match self.take() {
-                                Some(Word(_, member)) => text.push_str(&*member),
+                                Some(Word(_, member)) => new_text.push_str(&*member),
                                 Some(unexpected_token) => {
                                     return Err(ExpectedVariable(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Operator(index, Dot))),
+                                None => return Err(UnexpectedEof(Op(index, Dot))),
                             }
                         }
-                        Ok(Variable(text))
+                        Ok(Variable(new_text))
                     }
                     Some(unexpected_token) => Err(ExpectedVariable(unexpected_token)),
-                    None => Err(UnexpectedEof(Operator(index, At))),
+                    None => Err(UnexpectedEof(Op(index, At))),
                 }
             }
             // All the operations for creating an element.
-            Some(Operator(index, ForwardSlash)) => {
+            Some(Op(index, ForwardSlash)) => {
                 let tag = match self.take() {
                     Some(Word(_, text)) => text,
                     Some(operator) => {
                         return Err(InvalidElement(operator));
                     }
-                    None => return Err(UnexpectedEof(Operator(index, ForwardSlash))),
+                    None => return Err(UnexpectedEof(Op(index, ForwardSlash))),
                 };
                 let mut element = Element::new(tag.trim().to_owned());
 
                 'element: while let Some(token) = self.take() {
 
                     match token {
-                        Operator(index, At) => {
+                        Op(index, At) => {
                             match self.take() {
                                 Some(Word(_, id)) => element.add_resource(id),
                                 Some(unexpected_token) => {
                                     return Err(ExpectedVariable(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Operator(index, At))),
+                                None => return Err(UnexpectedEof(Op(index, At))),
                             }
                         }
-                        Operator(index, OpenParam) => {
+                        Op(index, OpenParam) => {
                             while let Some(token) = self.take() {
                                 match token {
-                                    Operator(_, CloseParam) => {
+                                    Op(_, CloseParam) => {
                                         match self.peek() {
-                                            Some(Operator(_, OpenBrace)) => break,
+                                            Some(Op(_, OpenBrace)) => break,
                                             _ => return Ok(Html(element)),
                                         }
                                     }
+                                    Op(_, Quote) => {
+                                        let key = format!("{}{}{}",
+                                                          '"',
+                                                          self.read_leading_quotes(),
+                                                          '"');
+                                        element.add_attribute(key, String::from(""));
+                                    }
                                     Word(_, key) => {
                                         let value = match self.peek() {
-                                            Some(Operator(index, Equals)) => {
+                                            Some(Op(index, Equals)) => {
                                                 let _ = self.take();
                                                 match self.take() {
                                                     Some(Word(_, text)) => text,
-                                                    Some(Operator(_, Quote)) => {
-                                                        let mut value = String::new();
-                                                        while let Some(token) = self.take() {
-                                                            match token {
-                                                                Operator(_, Quote) => break,
-                                                                Word(_, text) => {
-                                                                    value.push_str(&*text)
-                                                                }
-                                                                Operator(_, operator) => {
-                                                                    value.push_str(&*operator.to_string())
-                                                                }
-                                                                Empty => {}
-                                                            }
-                                                        }
-                                                        value
+                                                    Some(Op(_, Quote)) => {
+                                                        self.read_leading_quotes()
                                                     }
                                                     Some(unexpected_token) => {
                                                         return Err(InvalidTokenInAttributes(unexpected_token));
                                                     }
                                                     None => {
-                                                        return Err(UnexpectedEof(Operator(index,
-                                                                                          Equals)));
+                                                        return Err(UnexpectedEof(Op(index,
+                                                                                    Equals)));
                                                     }
                                                 }
                                             }
                                             Some(Word(_, _)) => String::from(""),
-                                            Some(Operator(_, CloseParam)) => String::from(""),
+                                            Some(Op(_, CloseParam)) => String::from(""),
+                                            Some(Op(_, Quote)) => String::from(""),
                                             Some(invalid_token) => {
                                                 return Err(InvalidTokenInAttributes(invalid_token))
                                             }
@@ -193,45 +200,45 @@ impl Parser {
                                 }
                             }
                         }
-                        Operator(index, Dot) => {
+                        Op(index, Dot) => {
                             match self.take() {
                                 Some(Word(_, class)) => element.add_class(class),
                                 Some(unexpected_token) => {
                                     return Err(NoNameAttachedToClass(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Operator(index, Dot))),
+                                None => return Err(UnexpectedEof(Op(index, Dot))),
                             }
                         }
-                        Operator(index, Pound) => {
+                        Op(index, Pound) => {
                             match self.take() {
                                 Some(Word(_, id)) => element.add_attribute(String::from("id"), id),
                                 Some(unexpected_token) => {
                                     return Err(NoNameAttachedToId(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Operator(index, Pound))),
+                                None => return Err(UnexpectedEof(Op(index, Pound))),
                             }
                         }
-                        Operator(_, OpenBrace) => {
+                        Op(_, OpenBrace) => {
                             let mut depth: usize = 0;
                             let mut open_brace_index: usize = 0;
                             let mut close_brace_index: usize = 0;
                             let mut children = Vec::new();
                             while let Some(token) = self.take() {
                                 match token {
-                                    Operator(index, OpenBrace) => {
+                                    Op(index, OpenBrace) => {
                                         depth += 1;
 
                                         if depth != 0 {
-                                            children.push(Operator(index, OpenBrace));
+                                            children.push(Op(index, OpenBrace));
                                         }
                                         open_brace_index = index;
                                     }
-                                    Operator(index, CloseBrace) => {
+                                    Op(index, CloseBrace) => {
                                         if depth == 0 {
                                             break;
                                         } else {
                                             depth -= 1;
-                                            children.push(Operator(index, CloseBrace));
+                                            children.push(Op(index, CloseBrace));
                                         }
                                         close_brace_index = index;
                                     }
@@ -256,9 +263,9 @@ impl Parser {
                 }
                 Ok(Html(element))
             }
-            Some(Operator(index, BackSlash)) => {
+            Some(Op(index, BackSlash)) => {
                 match self.peek() {
-                    Some(Operator(_, ref operator)) => {
+                    Some(Op(_, ref operator)) => {
                         let _ = self.take();
                         Ok(Text(operator.to_string()))
                     }
@@ -266,7 +273,8 @@ impl Parser {
                     None => Err(Eof),
                 }
             }
-            Some(Operator(index, operator)) => Ok(Text(operator.to_string())),
+            Some(Op(index, Ampersand)) => unimplemented!(),
+            Some(Op(index, operator)) => Ok(Text(operator.to_string())),
             Some(Empty) => unreachable!(),
             None => Err(Eof),
         }

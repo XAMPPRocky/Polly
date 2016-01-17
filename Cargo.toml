@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "poly"
-path = "src/bin.rs"
+path = "src/main.rs"
 
 [dependencies]
 clap = {version = "*", features = ["yaml"]}

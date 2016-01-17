@@ -3,7 +3,7 @@ extern crate clap;
 extern crate poly;
 
 use clap::App;
-use poly::codegen::Codegen;
+use poly::compiler::Codegen;
 use std::fs::{File, metadata};
 
 fn main() {

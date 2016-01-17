@@ -2,13 +2,10 @@ use std::collections::HashMap;
 use std::result;
 use std::process;
 
-use ast::{Token, AstError};
-use lexer::Lexer;
-use parser::Parser;
-pub type Result<T> = result::Result<T, AstError>;
+use super::*;
 
 pub struct Codegen<'a> {
-    elements: Vec<Result<Token>>,
+    elements: Vec<AstResult>,
     source: &'a str,
     file: &'a str,
     symbol_map: HashMap<&'a str, &'a str>,
@@ -40,10 +37,10 @@ impl<'a> Codegen<'a> {
         html
     }
 
-    fn render(&self, token: &Result<Token>) -> Option<String> {
-        use ast::Token::*;
+    fn render(&self, token: &AstResult) -> Option<String> {
+        use super::tokens::Token::*;
         match token {
-            &Ok(Html(_, ref element)) => {
+            &Ok(Html(ref element)) => {
                 use std::io::Write;
                 let mut html = Vec::new();
                 let tag = &**element.tag();
@@ -118,16 +115,17 @@ impl<'a> Codegen<'a> {
 
                 Some(String::from_utf8(html).unwrap())
             }
-            &Ok(Text(_, ref text)) => Some(text.clone()),
-            &Ok(Variable(_, ref variable)) => {
+            &Ok(Text(ref text)) => Some(text.clone()),
+            &Ok(Variable(ref variable)) => {
                 match self.symbol_map.get(&**variable) {
                     Some(value) => Some(String::from(*value)),
                     None => Some("".to_owned()),
                 }
             }
-            &Ok(Blank) => unreachable!(),
+            &Ok(Component(ref ast)) => unimplemented!(),
+            &Ok(Function(ref function)) => unimplemented!(),
             &Err(ref error) => {
-                use ast::AstError::*;
+                use super::tokens::AstError::*;
                 let (index, token_length) = match *error {
                     Eof => return None,
                     ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),

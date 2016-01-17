@@ -1,10 +1,9 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
-use consts::*;
-use lexeme::Lexeme;
-use operator::Operator;
-use operator::Operator::*;
+use super::*;
+use super::Lexeme::*;
+use super::Operator::*;
 /// Lexer
 pub struct Lexer<'a> {
     input: Peekable<CharIndices<'a>>,
@@ -35,7 +34,7 @@ impl<'a> Lexer<'a> {
         let mut new_vec = Vec::new();
         // Need to figure out a way to not clone the vector
         for lexeme in self.output.to_vec() {
-            if lexeme != Lexeme::Empty {
+            if lexeme != Empty {
                 new_vec.push(lexeme);
             }
         }
@@ -69,20 +68,20 @@ impl<'a> Lexer<'a> {
         }
 
         match self.take() {
-            Some((index, AMPERSAND)) => Some(Lexeme::Operator(index, Ampersand)),
-            Some((index, AT)) => Some(Lexeme::Operator(index, At)),
-            Some((index, BACKSLASH)) => Some(Lexeme::Operator(index, BackSlash)),
-            Some((index, CLOSEBRACE)) => Some(Lexeme::Operator(index, CloseBrace)),
-            Some((index, CLOSEPARAM)) => Some(Lexeme::Operator(index, CloseParam)),
-            Some((index, DOLLAR)) => Some(Lexeme::Operator(index, Dollar)),
-            Some((index, DOT)) => Some(Lexeme::Operator(index, Dot)),
-            Some((index, DOUBLEQUOTE)) => Some(Lexeme::Operator(index, Quote)),
-            Some((index, EQUALS)) => Some(Lexeme::Operator(index, Equals)),
-            Some((index, FORWARDSLASH)) => Some(Lexeme::Operator(index, ForwardSlash)),
-            Some((index, OPENBRACE)) => Some(Lexeme::Operator(index, OpenBrace)),
-            Some((index, OPENPARAM)) => Some(Lexeme::Operator(index, OpenParam)),
-            Some((index, POUND)) => Some(Lexeme::Operator(index, Pound)),
-            Some((index, STAR)) => Some(Lexeme::Operator(index, Star)),
+            Some((index, AMPERSAND)) => Some(Op(index, Ampersand)),
+            Some((index, AT)) => Some(Op(index, At)),
+            Some((index, BACKSLASH)) => Some(Op(index, BackSlash)),
+            Some((index, CLOSEBRACE)) => Some(Op(index, CloseBrace)),
+            Some((index, CLOSEPARAM)) => Some(Op(index, CloseParam)),
+            Some((index, DOLLAR)) => Some(Op(index, Dollar)),
+            Some((index, DOT)) => Some(Op(index, Dot)),
+            Some((index, DOUBLEQUOTE)) => Some(Op(index, Quote)),
+            Some((index, EQUALS)) => Some(Op(index, Equals)),
+            Some((index, FORWARDSLASH)) => Some(Op(index, ForwardSlash)),
+            Some((index, OPENBRACE)) => Some(Op(index, OpenBrace)),
+            Some((index, OPENPARAM)) => Some(Op(index, OpenParam)),
+            Some((index, POUND)) => Some(Op(index, Pound)),
+            Some((index, STAR)) => Some(Op(index, Star)),
             Some((index, character)) => {
                 let mut word = if leading_space {
                     ' '.to_string()
@@ -112,7 +111,7 @@ impl<'a> Lexer<'a> {
                             OPENPARAM |
                             POUND |
                             SINGLEQUOTE => {
-                                return Some(Lexeme::Word(index, word));
+                                return Some(Word(index, word));
                             }
                             ch => {
                                 if !ch.is_whitespace() {
@@ -133,7 +132,7 @@ impl<'a> Lexer<'a> {
                         let _ = self.take();
                     }
                 }
-                Some(Lexeme::Word(index, word))
+                Some(Word(index, word))
             }
             None => None,
         }
@@ -143,9 +142,9 @@ impl<'a> Lexer<'a> {
 #[allow(unused_imports)]
 mod tests {
     use super::Lexer;
-    use lexeme::Lexeme;
-    use lexeme::Lexeme::{Word, Operator};
-    use operator::Operator::*;
+    use compiler::tokens::Lexeme;
+    use compiler::tokens::Lexeme::{Word, Op};
+    use compiler::tokens::Operator::*;
 
     #[test]
     fn ignore_spaces() {
@@ -158,107 +157,107 @@ mod tests {
     fn at_operator() {
         let lexer = Lexer::lex("@");
 
-        assert_eq!(lexer.output(), vec![Operator(0, At)]);
+        assert_eq!(lexer.output(), vec![Op(0, At)]);
     }
     #[test]
     fn back_slash_operator() {
         let lexer = Lexer::lex("\\");
 
-        assert_eq!(lexer.output(), vec![Operator(0, BackSlash)]);
+        assert_eq!(lexer.output(), vec![Op(0, BackSlash)]);
     }
     #[test]
     fn close_brace_operator() {
         let lexer = Lexer::lex("}");
 
-        assert_eq!(lexer.output(), vec![Operator(0, CloseBrace)]);
+        assert_eq!(lexer.output(), vec![Op(0, CloseBrace)]);
     }
     #[test]
     fn close_param_operator() {
         let lexer = Lexer::lex(")");
 
-        assert_eq!(lexer.output(), vec![Operator(0, CloseParam)]);
+        assert_eq!(lexer.output(), vec![Op(0, CloseParam)]);
     }
     #[test]
     fn dot_operator() {
         let lexer = Lexer::lex(".");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Dot)]);
+        assert_eq!(lexer.output(), vec![Op(0, Dot)]);
     }
     #[test]
     fn equals_operator() {
         let lexer = Lexer::lex("=");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Equals)]);
+        assert_eq!(lexer.output(), vec![Op(0, Equals)]);
     }
     #[test]
     fn forward_slash_operator() {
         let lexer = Lexer::lex("/");
 
-        assert_eq!(lexer.output(), vec![Operator(0, ForwardSlash)]);
+        assert_eq!(lexer.output(), vec![Op(0, ForwardSlash)]);
     }
     #[test]
     fn new_line_operator() {
         let lexer = Lexer::lex("\n");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Newline)]);
+        assert_eq!(lexer.output(), vec![Op(0, Newline)]);
     }
     #[test]
     fn open_brace_operator() {
         let lexer = Lexer::lex("{");
 
-        assert_eq!(lexer.output(), vec![Operator(0, OpenBrace)]);
+        assert_eq!(lexer.output(), vec![Op(0, OpenBrace)]);
     }
     #[test]
     fn open_param_operator() {
         let lexer = Lexer::lex("(");
 
-        assert_eq!(lexer.output(), vec![Operator(0, OpenParam)]);
+        assert_eq!(lexer.output(), vec![Op(0, OpenParam)]);
     }
     #[test]
     fn pound_operator() {
         let lexer = Lexer::lex("#");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Pound)]);
+        assert_eq!(lexer.output(), vec![Op(0, Pound)]);
     }
     #[test]
     fn quote_operator() {
         let lexer = Lexer::lex("\"");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Quote)]);
+        assert_eq!(lexer.output(), vec![Op(0, Quote)]);
     }
     #[test]
     fn single_quote_into_quote_operator() {
         let lexer = Lexer::lex("'");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Quote)]);
+        assert_eq!(lexer.output(), vec![Op(0, Quote)]);
     }
     #[test]
     fn star_operator() {
         let lexer = Lexer::lex("*");
 
-        assert_eq!(lexer.output(), vec![Operator(0, Star)]);
+        assert_eq!(lexer.output(), vec![Op(0, Star)]);
     }
     #[test]
     fn all_operators() {
         let lexer = Lexer::lex("&@\\})$.=/\n{(#\"'*");
 
         assert_eq!(lexer.output(),
-                   vec![Operator(0, Ampersand),
-                        Operator(1, At),
-                        Operator(2, BackSlash),
-                        Operator(3, CloseBrace),
-                        Operator(4, CloseParam),
-                        Operator(5, Dollar),
-                        Operator(6, Dot),
-                        Operator(7, Equals),
-                        Operator(8, ForwardSlash),
-                        Operator(9, Newline),
-                        Operator(10, OpenBrace),
-                        Operator(11, OpenParam),
-                        Operator(12, Pound),
-                        Operator(13, Quote),
-                        Operator(14, Quote),
-                        Operator(15, Star)]);
+                   vec![Op(0, Ampersand),
+                        Op(1, At),
+                        Op(2, BackSlash),
+                        Op(3, CloseBrace),
+                        Op(4, CloseParam),
+                        Op(5, Dollar),
+                        Op(6, Dot),
+                        Op(7, Equals),
+                        Op(8, ForwardSlash),
+                        Op(9, Newline),
+                        Op(10, OpenBrace),
+                        Op(11, OpenParam),
+                        Op(12, Pound),
+                        Op(13, Quote),
+                        Op(14, Quote),
+                        Op(15, Star)]);
     }
     #[test]
     fn word() {
@@ -282,36 +281,36 @@ mod tests {
         let lexer = Lexer::lex("@{Hello}.");
 
         assert_eq!(lexer.output(),
-                   vec![Operator(0, At),
-                        Operator(1, OpenBrace),
+                   vec![Op(0, At),
+                        Op(1, OpenBrace),
                         Word(2, "Hello".to_string()),
-                        Operator(7, CloseBrace),
-                        Operator(8, Dot)]);
+                        Op(7, CloseBrace),
+                        Op(8, Dot)]);
     }
     #[test]
     fn hello_world() {
         let lexer = Lexer::lex("/html{\n /body {\n /p{Hello /u{World}!}}}");
-        let expected_tokens = vec![Operator(0, ForwardSlash),
+        let expected_tokens = vec![Op(0, ForwardSlash),
                                    Word(1, "html".to_owned()),
-                                   Operator(5, OpenBrace),
-                                   Operator(6, Newline),
-                                   Operator(8, ForwardSlash),
+                                   Op(5, OpenBrace),
+                                   Op(6, Newline),
+                                   Op(8, ForwardSlash),
                                    Word(9, "body ".to_owned()),
-                                   Operator(14, OpenBrace),
-                                   Operator(15, Newline),
-                                   Operator(17, ForwardSlash),
+                                   Op(14, OpenBrace),
+                                   Op(15, Newline),
+                                   Op(17, ForwardSlash),
                                    Word(18, "p".to_owned()),
-                                   Operator(19, OpenBrace),
+                                   Op(19, OpenBrace),
                                    Word(20, "Hello ".to_owned()),
-                                   Operator(26, ForwardSlash),
+                                   Op(26, ForwardSlash),
                                    Word(27, "u".to_owned()),
-                                   Operator(28, OpenBrace),
+                                   Op(28, OpenBrace),
                                    Word(29, "World".to_owned()),
-                                   Operator(34, CloseBrace),
+                                   Op(34, CloseBrace),
                                    Word(35, "!".to_owned()),
-                                   Operator(36, CloseBrace),
-                                   Operator(37, CloseBrace),
-                                   Operator(38, CloseBrace)];
+                                   Op(36, CloseBrace),
+                                   Op(37, CloseBrace),
+                                   Op(38, CloseBrace)];
         for (actual, expected) in lexer.output().iter().zip(expected_tokens.iter()) {
             assert_eq!(actual, expected);
         }

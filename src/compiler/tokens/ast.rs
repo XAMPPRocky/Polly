@@ -2,9 +2,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error;
 
-use args::Args;
-use element::Element;
-use lexeme::Lexeme;
+use super::args::Args;
+use super::element::Element;
+use super::lexeme::Lexeme;
 /// TODO
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -18,8 +18,6 @@ pub enum Token {
     Component(String),
     /// TODO
     Function(Vec<Args>),
-    /// TODO
-    Blank,
 }
 
 /// Errors defining all the errors that can be encountered while parsing.

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use consts::*;
+use super::consts::*;
 
 /// The types of operators
 #[derive(Debug, PartialEq, Clone)]

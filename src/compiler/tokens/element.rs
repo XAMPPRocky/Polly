@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::result;
 
-use ast::Token;
-use ast::AstError;
+use super::ast::{AstError, Token};
 
 pub type Result<T> = result::Result<T, AstError>;
 
 /// TODO
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Element {
     tag: String,
     classes: Vec<String>,

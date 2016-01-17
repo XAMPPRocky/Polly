@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
-use args::Args;
+use compiler::tokens::Args;
 
-pub type PolyFn = Fn(Vec<Args>);
+pub type PolyFn = Fn(Vec<Args>) -> String;
 
 
 pub struct Template<'a> {
@@ -14,5 +14,7 @@ pub struct Template<'a> {
 
 
 impl<'a> Template<'a> {
-    pub fn load(file: &str) -> Self {}
+    pub fn load(file: &str) -> Self {
+        unimplemented!()
+    }
 }
