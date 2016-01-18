@@ -2,9 +2,10 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error;
 
-use super::args::Args;
-use super::element::Element;
-use super::lexeme::Lexeme;
+use super::Args;
+use super::Component;
+use super::Element;
+use super::Lexeme;
 /// TODO
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -15,7 +16,7 @@ pub enum Token {
     /// TODO
     Variable(String),
     /// TODO
-    Component(String),
+    Comp(Component),
     /// TODO
     Function(Vec<Args>),
 }
@@ -27,6 +28,8 @@ pub enum AstError {
     Eof,
     /// Expected a Variable name.
     ExpectedVariable(Lexeme),
+    /// No name attached to component.
+    InvalidComponent(Lexeme),
     /// No name attached to element.
     InvalidElement(Lexeme),
     /// Token that isn't ", ', or a word. 
@@ -56,6 +59,7 @@ impl error::Error for AstError {
             Eof => "The file ended normally.",
             ExpectedVariable(_) => "Variable names can only be words.",
             InvalidElement(_) => "Element names can only be words.",
+            InvalidComponent(_) => "Element names can only be words.",
             InvalidTokenAfterEqualsAttributes(_) => "Expected quotes after equals.",
             InvalidTokenAfterWordInAttributes(_) => "Unexpected token after a key word.",
             InvalidTokenInAttributes(_) => {
@@ -81,6 +85,7 @@ impl Display for AstError {
             Eof => return write!(f, "{}", self.description()),
             ExpectedVariable(ref lexeme) => lexeme,
             InvalidElement(ref lexeme) => lexeme,
+            InvalidComponent(ref lexeme) => lexeme,
             InvalidTokenAfterEqualsAttributes(ref lexeme) => lexeme,
             InvalidTokenAfterWordInAttributes(ref lexeme) => lexeme,
             InvalidTokenInAttributes(ref lexeme) => lexeme,

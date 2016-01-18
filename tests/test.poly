@@ -149,7 +149,7 @@
                         /span.col-xs-12{Oct.31st}
                         /a(href="article.html") {
                             /h3.col-xs-12.article-heading {
-                                The Love Story Behind /em{&ldquo;Carol&lqduo;}
+                                The Love Story Behind /em{\&ldquo;Carol\&lqduo;}
                             }
                         }
                         /span.col-xs-12.text-uppercase {

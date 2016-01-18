@@ -37,6 +37,10 @@ impl<'a> Codegen<'a> {
         html
     }
 
+    pub fn from_component(component: &Component) -> String {
+        unimplemented!()
+    }
+
     fn render(&self, token: &AstResult) -> Option<String> {
         use super::tokens::Token::*;
         match token {
@@ -122,7 +126,7 @@ impl<'a> Codegen<'a> {
                     None => Some("".to_owned()),
                 }
             }
-            &Ok(Component(ref ast)) => unimplemented!(),
+            &Ok(Comp(ref ast)) => unimplemented!(),
             &Ok(Function(ref function)) => unimplemented!(),
             &Err(ref error) => {
                 use super::tokens::AstError::*;
@@ -199,7 +203,7 @@ mod tests {
         use super::Codegen;
         use std::fs::File;
         use std::io::Read;
-        let file_name = "./tests/index.poly";
+        let file_name = "./tests/test.poly";
         let mut file = File::open(file_name)
                            .ok()
                            .expect("File doesn't exist, or isn't a file.");

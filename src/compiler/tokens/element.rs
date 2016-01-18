@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::result;
 
+use compiler::AstResult;
 use super::ast::{AstError, Token};
 
-pub type Result<T> = result::Result<T, AstError>;
 
 /// TODO
 #[derive(Clone, Debug, PartialEq)]
@@ -12,7 +12,7 @@ pub struct Element {
     classes: Vec<String>,
     attributes: HashMap<String, String>,
     resource: Option<String>,
-    children: Vec<Result<Token>>,
+    children: Vec<AstResult>,
 }
 
 
@@ -48,7 +48,7 @@ impl Element {
     }
 
     /// Gets children
-    pub fn children(&self) -> &Vec<Result<Token>> {
+    pub fn children(&self) -> &Vec<AstResult> {
         &self.children
     }
 
@@ -57,7 +57,7 @@ impl Element {
         self.resource = Some(resource);
     }
 
-    fn add_child(&mut self, child: Result<Token>) {
+    fn add_child(&mut self, child: AstResult) {
         if self.resource == None {
             self.children.push(child);
         } else {
@@ -66,10 +66,8 @@ impl Element {
         }
     }
     /// TODO
-    pub fn add_children(&mut self, children: Vec<Result<Token>>) {
-        for child in children {
-            self.add_child(child);
-        }
+    pub fn add_children(&mut self, children: &mut Vec<AstResult>) {
+        self.children.append(children)
     }
     /// TODO
     pub fn add_class(&mut self, class: String) {

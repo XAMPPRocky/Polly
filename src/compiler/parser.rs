@@ -12,6 +12,61 @@ use super::tokens::Token::*;
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = result::Result<Token, AstError>;
 
+macro_rules! get_identifer {
+    ($token:expr, $index:expr, $unexpected:expr) => {
+        match $token {
+            Some(Word(_, text)) => text,
+            Some(unexpected_token) => {
+                return Err($unexpected(unexpected_token))
+            }
+            None => return Err(UnexpectedEof(Symbol($index, At))),
+        };
+    }
+}
+
+
+macro_rules! get_children {
+    ($token:expr, $parent:expr, $terminator:expr) => 
+    {{
+        let mut depth: usize = 0;
+        let mut open_brace_index: usize = 0;
+        let mut close_brace_index: usize = 0;
+        let mut children = Vec::new();
+        while let Some(token) = $token {
+            match token {
+                Symbol(index, OpenBrace) => {
+                    depth += 1;
+
+                    if depth != 0 {
+                        children.push(Symbol(index, OpenBrace));
+                    }
+                    open_brace_index = index;
+                }
+                Symbol(index, CloseBrace) => {
+                    if depth == 0 {
+                        break;
+                    } else {
+                        depth -= 1;
+                        children.push(Symbol(index, CloseBrace));
+                    }
+                    close_brace_index = index;
+                }
+                t => children.push(t),
+            }
+        }
+
+        if depth > 0 {
+            return Err(UnclosedOpenBraces(open_brace_index));
+        } else if depth != 0 {
+            return Err(UnclosedOpenBraces(close_brace_index));
+        }
+        if !children.is_empty() {
+            $parent.add_children(&mut Parser::parse(children).output());
+        }
+        $terminator;
+    }}
+}
+
 /// The struct detailing the parser itself.
 // #[derive(Debug)]
 pub struct Parser {
@@ -76,9 +131,9 @@ impl Parser {
         let mut value = String::new();
         while let Some(token) = self.take() {
             match token {
-                Op(_, Quote) => break,
+                Symbol(_, Quote) => break,
                 Word(_, text) => value.push_str(&*text),
-                Op(_, operator) => value.push_str(&*operator.to_string()),
+                Symbol(_, operator) => value.push_str(&*operator.to_string()),
                 Empty => {}
             }
         }
@@ -90,7 +145,7 @@ impl Parser {
         match self.take() {
             // concatenate all the word tokens that are adjacent to each other into a single "Text"
             // token.
-            Some(Word(index, word)) => {
+            Some(Word(_, word)) => {
                 let mut text = String::from(word);
                 loop {
                     let peek = self.peek();
@@ -104,11 +159,11 @@ impl Parser {
                 }
             }
             // If we find a variable, we expect a word after it.
-            Some(Op(index, At)) => {
+            Some(Symbol(index, At)) => {
                 match self.take() {
                     Some(Word(index, text)) => {
                         let mut new_text = text.clone();
-                        while let Some(Op(_, Dot)) = self.peek() {
+                        while let Some(Symbol(_, Dot)) = self.peek() {
                             let _ = self.take();
                             new_text.push('.');
 
@@ -117,48 +172,42 @@ impl Parser {
                                 Some(unexpected_token) => {
                                     return Err(ExpectedVariable(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Op(index, Dot))),
+                                None => return Err(UnexpectedEof(Symbol(index, Dot))),
                             }
                         }
                         Ok(Variable(new_text))
                     }
                     Some(unexpected_token) => Err(ExpectedVariable(unexpected_token)),
-                    None => Err(UnexpectedEof(Op(index, At))),
+                    None => Err(UnexpectedEof(Symbol(index, At))),
                 }
             }
             // All the operations for creating an element.
-            Some(Op(index, ForwardSlash)) => {
-                let tag = match self.take() {
-                    Some(Word(_, text)) => text,
-                    Some(operator) => {
-                        return Err(InvalidElement(operator));
-                    }
-                    None => return Err(UnexpectedEof(Op(index, ForwardSlash))),
-                };
+            Some(Symbol(index, ForwardSlash)) => {
+                let tag = get_identifer!(self.take(), index, InvalidElement);
                 let mut element = Element::new(tag.trim().to_owned());
 
                 'element: while let Some(token) = self.take() {
 
                     match token {
-                        Op(index, At) => {
+                        Symbol(index, At) => {
                             match self.take() {
                                 Some(Word(_, id)) => element.add_resource(id),
                                 Some(unexpected_token) => {
                                     return Err(ExpectedVariable(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Op(index, At))),
+                                None => return Err(UnexpectedEof(Symbol(index, At))),
                             }
                         }
-                        Op(index, OpenParam) => {
+                        Symbol(index, OpenParam) => {
                             while let Some(token) = self.take() {
                                 match token {
-                                    Op(_, CloseParam) => {
+                                    Symbol(_, CloseParam) => {
                                         match self.peek() {
-                                            Some(Op(_, OpenBrace)) => break,
+                                            Some(Symbol(_, OpenBrace)) => break,
                                             _ => return Ok(Html(element)),
                                         }
                                     }
-                                    Op(_, Quote) => {
+                                    Symbol(_, Quote) => {
                                         let key = format!("{}{}{}",
                                                           '"',
                                                           self.read_leading_quotes(),
@@ -167,25 +216,25 @@ impl Parser {
                                     }
                                     Word(_, key) => {
                                         let value = match self.peek() {
-                                            Some(Op(index, Equals)) => {
+                                            Some(Symbol(index, Equals)) => {
                                                 let _ = self.take();
                                                 match self.take() {
                                                     Some(Word(_, text)) => text,
-                                                    Some(Op(_, Quote)) => {
+                                                    Some(Symbol(_, Quote)) => {
                                                         self.read_leading_quotes()
                                                     }
                                                     Some(unexpected_token) => {
                                                         return Err(InvalidTokenInAttributes(unexpected_token));
                                                     }
                                                     None => {
-                                                        return Err(UnexpectedEof(Op(index,
-                                                                                    Equals)));
+                                                        return Err(UnexpectedEof(Symbol(index,
+                                                                                        Equals)));
                                                     }
                                                 }
                                             }
                                             Some(Word(_, _)) => String::from(""),
-                                            Some(Op(_, CloseParam)) => String::from(""),
-                                            Some(Op(_, Quote)) => String::from(""),
+                                            Some(Symbol(_, CloseParam)) => String::from(""),
+                                            Some(Symbol(_, Quote)) => String::from(""),
                                             Some(invalid_token) => {
                                                 return Err(InvalidTokenInAttributes(invalid_token))
                                             }
@@ -200,62 +249,25 @@ impl Parser {
                                 }
                             }
                         }
-                        Op(index, Dot) => {
+                        Symbol(index, Dot) => {
                             match self.take() {
                                 Some(Word(_, class)) => element.add_class(class),
                                 Some(unexpected_token) => {
                                     return Err(NoNameAttachedToClass(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Op(index, Dot))),
+                                None => return Err(UnexpectedEof(Symbol(index, Dot))),
                             }
                         }
-                        Op(index, Pound) => {
+                        Symbol(index, Pound) => {
                             match self.take() {
                                 Some(Word(_, id)) => element.add_attribute(String::from("id"), id),
                                 Some(unexpected_token) => {
                                     return Err(NoNameAttachedToId(unexpected_token))
                                 }
-                                None => return Err(UnexpectedEof(Op(index, Pound))),
+                                None => return Err(UnexpectedEof(Symbol(index, Pound))),
                             }
                         }
-                        Op(_, OpenBrace) => {
-                            let mut depth: usize = 0;
-                            let mut open_brace_index: usize = 0;
-                            let mut close_brace_index: usize = 0;
-                            let mut children = Vec::new();
-                            while let Some(token) = self.take() {
-                                match token {
-                                    Op(index, OpenBrace) => {
-                                        depth += 1;
-
-                                        if depth != 0 {
-                                            children.push(Op(index, OpenBrace));
-                                        }
-                                        open_brace_index = index;
-                                    }
-                                    Op(index, CloseBrace) => {
-                                        if depth == 0 {
-                                            break;
-                                        } else {
-                                            depth -= 1;
-                                            children.push(Op(index, CloseBrace));
-                                        }
-                                        close_brace_index = index;
-                                    }
-                                    t => children.push(t),
-                                }
-                            }
-
-                            if depth > 0 {
-                                return Err(UnclosedOpenBraces(open_brace_index));
-                            } else if depth != 0 {
-                                return Err(UnclosedOpenBraces(close_brace_index));
-                            }
-                            if !children.is_empty() {
-                                element.add_children(Parser::parse(children).output());
-                            }
-                            break;
-                        }
+                        Symbol(_, OpenBrace) => get_children!(self.take(), element, break),
                         Word(_, text) => element.add_text(text),
 
                         unexpected_token => return Err(UnexpectedToken(unexpected_token)),
@@ -263,9 +275,9 @@ impl Parser {
                 }
                 Ok(Html(element))
             }
-            Some(Op(index, BackSlash)) => {
+            Some(Symbol(index, BackSlash)) => {
                 match self.peek() {
-                    Some(Op(_, ref operator)) => {
+                    Some(Symbol(_, ref operator)) => {
                         let _ = self.take();
                         Ok(Text(operator.to_string()))
                     }
@@ -273,8 +285,40 @@ impl Parser {
                     None => Err(Eof),
                 }
             }
-            Some(Op(index, Ampersand)) => unimplemented!(),
-            Some(Op(index, operator)) => Ok(Text(operator.to_string())),
+            Some(Symbol(index, Ampersand)) => {
+                let name = get_identifer!(self.take(), index, InvalidComponent);
+                let component = Component::new(name);
+
+                match self.take() {
+                    Some(Symbol(index, OpenParam)) => {
+                        while let Some(token) = self.take() {
+                            match token {
+                                token @ Symbol(index, At) | token @ Symbol(index, Ampersand) => {
+
+                                    let identifier = get_identifer!(self.take(),
+                                                                    index,
+                                                                    UnexpectedToken);
+
+                                    if token == Symbol(index, At) {
+                                        component.add_arg_value(identifier);
+                                    } else {
+                                        component.add_arg_component(identifier);
+                                    }
+                                }
+                                Symbol(_, CloseParam) => break,
+                                Symbol(_, Comma) => {}
+                                Symbol(_, OpenBrace) => {}
+                            }
+                        }
+                    }
+                    Some(Symbol(index, OpenBrace)) => get_children!(self.take(), component, ""),
+                    Some(unexpected_token) => return Err(UnexpectedToken(unexpected_token)),
+                    None => return Err(Eof),
+                }
+                Ok(Comp(component))
+            }
+            Some(Symbol(index, Dollar)) => unimplemented!(),
+            Some(Symbol(_, operator)) => Ok(Text(operator.to_string())),
             Some(Empty) => unreachable!(),
             None => Err(Eof),
         }
