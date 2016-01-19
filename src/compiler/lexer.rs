@@ -256,7 +256,7 @@ mod tests {
                             Symbol(11, Pound),
                             Symbol(12, Quote),
                             Symbol(13, Star),
-                            Symbol(13, Comma)];
+                            Symbol(14, Comma)];
 
         for (actual, expected) in lexer.output().iter().zip(expected.iter()) {
             assert_eq!(actual, expected);

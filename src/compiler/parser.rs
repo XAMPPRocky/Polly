@@ -1,4 +1,3 @@
-use std::result;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -10,7 +9,7 @@ use super::tokens::Operator::*;
 use super::tokens::Token::*;
 
 /// Shortens Result<T, AstError> to Result<T>.
-pub type AstResult = result::Result<Token, AstError>;
+pub type AstResult = Result<Token, AstError>;
 
 macro_rules! get_identifer {
     ($token:expr, $index:expr, $unexpected:expr) => {
@@ -275,7 +274,7 @@ impl Parser {
                 }
                 Ok(Html(element))
             }
-            Some(Symbol(index, BackSlash)) => {
+            Some(Symbol(_, BackSlash)) => {
                 match self.peek() {
                     Some(Symbol(_, ref operator)) => {
                         let _ = self.take();
@@ -287,31 +286,36 @@ impl Parser {
             }
             Some(Symbol(index, Ampersand)) => {
                 let name = get_identifer!(self.take(), index, InvalidComponent);
-                let component = Component::new(name);
+                let mut component = Component::new(name);
 
                 match self.take() {
                     Some(Symbol(index, OpenParam)) => {
                         while let Some(token) = self.take() {
                             match token {
-                                token @ Symbol(index, At) | token @ Symbol(index, Ampersand) => {
+                                token @ Symbol(_, At) | token @ Symbol(_, Ampersand) => {
 
                                     let identifier = get_identifer!(self.take(),
                                                                     index,
                                                                     UnexpectedToken);
 
-                                    if token == Symbol(index, At) {
-                                        component.add_arg_value(identifier);
-                                    } else {
+                                    if token == Symbol(index, Ampersand) {
                                         component.add_arg_component(identifier);
+                                    } else {
+                                        component.add_arg_value(identifier);
                                     }
                                 }
-                                Symbol(_, CloseParam) => break,
+                                Symbol(_, CloseParam) => {
+                                    match self.peek() {
+                                        Some(Symbol(_, OpenBrace)) => break,
+                                        _ => return Ok(CompCall(component)),
+                                    }
+                                }
                                 Symbol(_, Comma) => {}
-                                Symbol(_, OpenBrace) => {}
+                                unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                             }
                         }
                     }
-                    Some(Symbol(index, OpenBrace)) => get_children!(self.take(), component, ""),
+                    Some(Symbol(_, OpenBrace)) => get_children!(self.take(), component, ""),
                     Some(unexpected_token) => return Err(UnexpectedToken(unexpected_token)),
                     None => return Err(Eof),
                 }

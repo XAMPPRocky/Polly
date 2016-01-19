@@ -18,6 +18,8 @@ pub enum Token {
     /// TODO
     Comp(Component),
     /// TODO
+    CompCall(Component),
+    /// TODO
     Function(Vec<Args>),
 }
 
@@ -50,6 +52,26 @@ pub enum AstError {
     UnexpectedEof(Lexeme),
     /// Unknown token
     UnexpectedToken(Lexeme),
+}
+
+impl AstError {
+    pub fn values(&self) -> (usize, usize) {
+        match self {
+            Eof => (0, 0),
+            ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidComponent(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidTokenAfterEqualsAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidTokenAfterWordInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidTokenInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
+            NoNameAttachedToClass(ref lexeme) => (lexeme.index(), lexeme.length()),
+            NoNameAttachedToId(ref lexeme) => (lexeme.index(), lexeme.length()),
+            UnclosedCloseBraces(index) => (index, 1),
+            UnclosedOpenBraces(index) => (index, 1),
+            UnexpectedEof(ref lexeme) => (lexeme.index(), lexeme.length()),
+            UnexpectedToken(ref lexeme) => (lexeme.index(), lexeme.length()),
+        }
+    }
 }
 
 impl error::Error for AstError {

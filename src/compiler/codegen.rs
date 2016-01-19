@@ -2,13 +2,14 @@ use std::collections::HashMap;
 use std::result;
 use std::process;
 
+use serde_json::Value;
 use super::*;
 
 pub struct Codegen<'a> {
     elements: Vec<AstResult>,
     source: &'a str,
     file: &'a str,
-    symbol_map: HashMap<&'a str, &'a str>,
+    variables: Value,
 }
 
 impl<'a> Codegen<'a> {
@@ -37,9 +38,7 @@ impl<'a> Codegen<'a> {
         html
     }
 
-    pub fn from_component(component: &Component) -> String {
-        unimplemented!()
-    }
+    pub fn from_component(component: &Component) -> String {}
 
     fn render(&self, token: &AstResult) -> Option<String> {
         use super::tokens::Token::*;
@@ -129,25 +128,10 @@ impl<'a> Codegen<'a> {
             &Ok(Comp(ref ast)) => unimplemented!(),
             &Ok(Function(ref function)) => unimplemented!(),
             &Err(ref error) => {
-                use super::tokens::AstError::*;
-                let (index, token_length) = match *error {
-                    Eof => return None,
-                    ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),
-                    InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
-                    InvalidTokenAfterEqualsAttributes(ref lexeme) => {
-                        (lexeme.index(), lexeme.length())
-                    }
-                    InvalidTokenAfterWordInAttributes(ref lexeme) => {
-                        (lexeme.index(), lexeme.length())
-                    }
-                    InvalidTokenInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
-                    NoNameAttachedToClass(ref lexeme) => (lexeme.index(), lexeme.length()),
-                    NoNameAttachedToId(ref lexeme) => (lexeme.index(), lexeme.length()),
-                    UnclosedCloseBraces(index) => (index, 1),
-                    UnclosedOpenBraces(index) => (index, 1),
-                    UnexpectedEof(ref lexeme) => (lexeme.index(), lexeme.length()),
-                    UnexpectedToken(ref lexeme) => (lexeme.index(), lexeme.length()),
-                };
+                if error == Err(super::AstError::Eof) {
+                    return None;
+                }
+                let (index, token_length) = error.values();
                 let mut line_number: usize = 0;
                 let mut col_number: usize = 1;
 

@@ -21,11 +21,11 @@ impl Component {
     }
 
     pub fn add_arg_value(&mut self, value: String) {
-        unimplemented!()
+        self.args.push(Args::Generic(value));
     }
 
     pub fn add_arg_component(&mut self, value: String) {
-        unimplemented!()
+        self.args.push(Args::Component(value));
     }
 
     pub fn add_children(&mut self, children: &mut Vec<AstResult>) {
