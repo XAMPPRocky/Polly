@@ -105,22 +105,21 @@ impl<'a> Codegen<'a> {
                 use std::io::Write;
                 let mut html = Vec::new();
                 let tag = &**element.tag();
-                write!(&mut html, "<{tag}", tag = tag).ok().expect("Couldn't write to html file");
+                const HTML_ERROR: &'static str = "Couldn't write to html buffer.";
+                write!(&mut html, "<{tag}", tag = tag).ok().expect(HTML_ERROR);
 
                 if !element.classes().is_empty() {
-                    write!(&mut html, " class=\"").ok().expect("Couldn't write to html file");
+                    write!(&mut html, " class=\"").ok().expect(HTML_ERROR);
                     let mut classes_iter = element.classes().iter();
                     write!(&mut html, "{}", classes_iter.next().unwrap())
                         .ok()
-                        .expect("Couldn't write to html file");
+                        .expect(HTML_ERROR);
                     for class in classes_iter {
                         if !class.is_empty() {
-                            write!(&mut html, " {}", &*class)
-                                .ok()
-                                .expect("Couldn't write to html file");
+                            write!(&mut html, " {}", &*class).ok().expect(HTML_ERROR);
                         }
                     }
-                    write!(&mut html, "\"").ok().expect("Couldn't write to html file");
+                    write!(&mut html, "\"").ok().expect(HTML_ERROR);
                 }
 
                 if !element.attributes().is_empty() {
@@ -129,17 +128,15 @@ impl<'a> Codegen<'a> {
                             if !value.is_empty() {
                                 write!(&mut html, " {key}=\"{value}\"", key = key, value = value)
                                     .ok()
-                                    .expect("Couldn't write to html file");
+                                    .expect(HTML_ERROR);
                             } else {
-                                write!(&mut html, " {}", key)
-                                    .ok()
-                                    .expect("Couldn't write to html file");
+                                write!(&mut html, " {}", key).ok().expect(HTML_ERROR);
                             }
                         }
                     }
                 }
 
-                write!(&mut html, ">").ok().expect("Couldn't write to html file");
+                write!(&mut html, ">").ok().expect(HTML_ERROR);
 
 
                 const VOID_ELEMENTS: [&'static str; 13] = ["area", "base", "br", "col", "hr",
@@ -156,19 +153,17 @@ impl<'a> Codegen<'a> {
                 if let &Some(ref resource) = element.resource() {
                     write!(&mut html, "{}", self.from_component(resource.clone()))
                         .ok()
-                        .expect("Couldn't write to html file");
+                        .expect(HTML_ERROR);
 
                 } else {
                     for child in element.children() {
                         if let Some(rendered_child) = self.render(child) {
-                            write!(&mut html, "{}", rendered_child)
-                                .ok()
-                                .expect("Couldn't write to html file");
+                            write!(&mut html, "{}", rendered_child).ok().expect(HTML_ERROR);
                         }
                     }
                 }
 
-                write!(&mut html, "</{tag}>", tag = tag).ok().expect("Couldn't write to html file");
+                write!(&mut html, "</{tag}>", tag = tag).ok().expect(HTML_ERROR);
 
                 Some(String::from_utf8(html).unwrap())
             }
