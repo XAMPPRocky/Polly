@@ -7,6 +7,7 @@ use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
+use template::COMPONENTS;
 
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = Result<Token, AstError>;
@@ -25,7 +26,7 @@ macro_rules! get_identifer {
 
 
 macro_rules! get_children {
-    ($token:expr, $parent:expr, $terminator:expr) => 
+    ($token:expr, $parent:expr) => 
     {{
         let mut depth: usize = 0;
         let mut open_brace_index: usize = 0;
@@ -62,7 +63,6 @@ macro_rules! get_children {
         if !children.is_empty() {
             $parent.add_children(&mut Parser::parse(children).output());
         }
-        $terminator;
     }}
 }
 
@@ -188,14 +188,29 @@ impl Parser {
                 'element: while let Some(token) = self.take() {
 
                     match token {
-                        Symbol(index, At) => {
-                            match self.take() {
-                                Some(Word(_, id)) => element.add_resource(id),
-                                Some(unexpected_token) => {
-                                    return Err(ExpectedVariable(unexpected_token))
+                        Symbol(index, Ampersand) => {
+                            let identifier = get_identifer!(self.take(), index, ExpectedCompCall);
+                            let mut component_call = ComponentCall::new(identifier);
+
+                            if let Some(Symbol(_, OpenParam)) = self.peek() {
+                                let _ = self.take();
+                                while let Some(symbol) = self.take() {
+                                    match symbol {
+                                        Symbol(_, CloseParam) => break,
+                                        Symbol(index, At) => {
+                                            let identifier = get_identifer!(self.take(),
+                                                                            index,
+                                                                            ExpectedVariable);
+                                            component_call.add_value(identifier);
+                                        }
+                                        Symbol(_, Comma) => {}
+                                        unexpected_token => {
+                                            return Err(UnexpectedToken(unexpected_token))
+                                        }
+                                    }
                                 }
-                                None => return Err(UnexpectedEof(Symbol(index, At))),
                             }
+                            element.add_resource(component_call)
                         }
                         Symbol(index, OpenParam) => {
                             while let Some(token) = self.take() {
@@ -266,7 +281,10 @@ impl Parser {
                                 None => return Err(UnexpectedEof(Symbol(index, Pound))),
                             }
                         }
-                        Symbol(_, OpenBrace) => get_children!(self.take(), element, break),
+                        Symbol(_, OpenBrace) => {
+                            get_children!(self.take(), element);
+                            break;
+                        }
                         Word(_, text) => element.add_text(text),
 
                         unexpected_token => return Err(UnexpectedToken(unexpected_token)),
@@ -280,7 +298,7 @@ impl Parser {
                         let _ = self.take();
                         Ok(Text(operator.to_string()))
                     }
-                    Some(_) => Ok(Text(BackSlash.to_string())),
+                    Some(_) => Ok(Text(String::new())),
                     None => Err(Eof),
                 }
             }
@@ -288,38 +306,43 @@ impl Parser {
                 let name = get_identifer!(self.take(), index, InvalidComponent);
                 let mut component = Component::new(name);
 
-                match self.take() {
-                    Some(Symbol(index, OpenParam)) => {
-                        while let Some(token) = self.take() {
-                            match token {
-                                token @ Symbol(_, At) | token @ Symbol(_, Ampersand) => {
+                while let Some(token) = self.take() {
+                    match token {
+                        Symbol(_, OpenParam) => {
+                            while let Some(token) = self.take() {
+                                match token {
+                                    Symbol(index, At) => {
 
-                                    let identifier = get_identifer!(self.take(),
-                                                                    index,
-                                                                    UnexpectedToken);
-
-                                    if token == Symbol(index, Ampersand) {
-                                        component.add_arg_component(identifier);
-                                    } else {
+                                        let identifier = get_identifer!(self.take(),
+                                                                        index,
+                                                                        UnexpectedToken);
                                         component.add_arg_value(identifier);
                                     }
-                                }
-                                Symbol(_, CloseParam) => {
-                                    match self.peek() {
-                                        Some(Symbol(_, OpenBrace)) => break,
-                                        _ => return Ok(CompCall(component)),
+                                    Symbol(_, CloseParam) => {
+                                        match self.peek() {
+                                            Some(Symbol(_, OpenBrace)) => break,
+                                            _ => {
+                                                return Ok(CompCall((ComponentCall::from_component(component))));
+                                            }
+                                        }
+                                    }
+                                    Symbol(_, Comma) => {}
+                                    unexpected_token => {
+                                        return Err(UnexpectedToken(unexpected_token))
                                     }
                                 }
-                                Symbol(_, Comma) => {}
-                                unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                             }
                         }
+                        Symbol(_, OpenBrace) => {
+                            get_children!(self.take(), component);
+                            break;
+                        }
+                        unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                     }
-                    Some(Symbol(_, OpenBrace)) => get_children!(self.take(), component, ""),
-                    Some(unexpected_token) => return Err(UnexpectedToken(unexpected_token)),
-                    None => return Err(Eof),
                 }
-                Ok(Comp(component))
+                let mut global_components = COMPONENTS.lock().unwrap();
+                global_components.insert(component.name().clone(), component);
+                Ok(Text(String::new()))
             }
             Some(Symbol(index, Dollar)) => unimplemented!(),
             Some(Symbol(_, operator)) => Ok(Text(operator.to_string())),

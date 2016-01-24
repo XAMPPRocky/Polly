@@ -2,10 +2,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error;
 
-use super::Args;
-use super::Component;
-use super::Element;
-use super::Lexeme;
+use super::{Args, Component, ComponentCall, Element, Lexeme};
+use self::AstError::*;
+
 /// TODO
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -18,7 +17,7 @@ pub enum Token {
     /// TODO
     Comp(Component),
     /// TODO
-    CompCall(Component),
+    CompCall(ComponentCall),
     /// TODO
     Function(Vec<Args>),
 }
@@ -28,6 +27,8 @@ pub enum Token {
 pub enum AstError {
     /// End of File
     Eof,
+    /// Expected a Component name.
+    ExpectedCompCall(Lexeme),
     /// Expected a Variable name.
     ExpectedVariable(Lexeme),
     /// No name attached to component.
@@ -48,6 +49,8 @@ pub enum AstError {
     UnclosedCloseBraces(usize),
     /// Extra { braces
     UnclosedOpenBraces(usize),
+    /// Attempted to define a component, where it wasn't valid.
+    UnexpectedCompDefine(Lexeme),
     /// File ended while we tried to parse element.
     UnexpectedEof(Lexeme),
     /// Unknown token
@@ -56,8 +59,9 @@ pub enum AstError {
 
 impl AstError {
     pub fn values(&self) -> (usize, usize) {
-        match self {
+        match *self {
             Eof => (0, 0),
+            ExpectedCompCall(ref lexeme) => (lexeme.index(), lexeme.length()),
             ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidComponent(ref lexeme) => (lexeme.index(), lexeme.length()),
@@ -68,6 +72,7 @@ impl AstError {
             NoNameAttachedToId(ref lexeme) => (lexeme.index(), lexeme.length()),
             UnclosedCloseBraces(index) => (index, 1),
             UnclosedOpenBraces(index) => (index, 1),
+            UnexpectedCompDefine(ref lexeme) => (lexeme.index(), lexeme.length()),
             UnexpectedEof(ref lexeme) => (lexeme.index(), lexeme.length()),
             UnexpectedToken(ref lexeme) => (lexeme.index(), lexeme.length()),
         }
@@ -76,9 +81,9 @@ impl AstError {
 
 impl error::Error for AstError {
     fn description(&self) -> &str {
-        use self::AstError::*;
         match *self {
             Eof => "The file ended normally.",
+            ExpectedCompCall(_) => "Component names can only be words.",
             ExpectedVariable(_) => "Variable names can only be words.",
             InvalidElement(_) => "Element names can only be words.",
             InvalidComponent(_) => "Element names can only be words.",
@@ -92,6 +97,7 @@ impl error::Error for AstError {
             NoNameAttachedToId(_) => "Id names can only be words.",
             UnclosedCloseBraces(_) => "You have an extra closing brace.",
             UnclosedOpenBraces(_) => "You have an extra open brace.",
+            UnexpectedCompDefine(_) => "Attempted to define a component, where it wasn't valid",
             UnexpectedEof(_) => "File ended before an element is finished being parsed",
             UnexpectedToken(_) => "Unknown token in use.",
         }
@@ -101,10 +107,10 @@ impl error::Error for AstError {
 
 impl Display for AstError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use self::AstError::*;
         use std::error::Error;
         let lexeme = match *self {
             Eof => return write!(f, "{}", self.description()),
+            ExpectedCompCall(ref lexeme) => lexeme,
             ExpectedVariable(ref lexeme) => lexeme,
             InvalidElement(ref lexeme) => lexeme,
             InvalidComponent(ref lexeme) => lexeme,
@@ -115,6 +121,7 @@ impl Display for AstError {
             NoNameAttachedToId(ref lexeme) => lexeme,
             UnclosedCloseBraces(_) => return write!(f, "{}", self.description()),
             UnclosedOpenBraces(_) => return write!(f, "{}", self.description()),
+            UnexpectedCompDefine(ref lexeme) => lexeme,
             UnexpectedEof(ref lexeme) => lexeme,
             UnexpectedToken(ref lexeme) => lexeme,
         };

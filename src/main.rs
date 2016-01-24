@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 extern crate poly;
+extern crate serde_json;
 
 use clap::App;
 use poly::compiler::Codegen;
@@ -21,7 +22,10 @@ fn main() {
             let mut file = File::open(path).ok().expect("This file couldn't be opened");
             let mut contents = String::new();
             file.read_to_string(&mut contents).ok().expect("Couldn't write to buffer");
-            let html = Codegen::codegen(&*contents, path);
+            let html =
+                Codegen::codegen(&*contents,
+                                 path,
+                                 serde_json::Value::Object(std::collections::BTreeMap::new()));
 
             if let Some(path) = matches.value_of("file") {
                 use std::io::Write;

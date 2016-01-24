@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use std::result;
-
 use compiler::AstResult;
-use super::ast::{AstError, Token};
+use super::{ComponentCall, Token};
 
 
 /// TODO
@@ -11,7 +9,7 @@ pub struct Element {
     tag: String,
     classes: Vec<String>,
     attributes: HashMap<String, String>,
-    resource: Option<String>,
+    resource: Option<ComponentCall>,
     children: Vec<AstResult>,
 }
 
@@ -43,7 +41,7 @@ impl Element {
     }
 
     /// Gets resource
-    pub fn resource(&self) -> &Option<String> {
+    pub fn resource(&self) -> &Option<ComponentCall> {
         &self.resource
     }
 
@@ -53,18 +51,10 @@ impl Element {
     }
 
     /// TODO
-    pub fn add_resource(&mut self, resource: String) {
+    pub fn add_resource(&mut self, resource: ComponentCall) {
         self.resource = Some(resource);
     }
 
-    fn add_child(&mut self, child: AstResult) {
-        if self.resource == None {
-            self.children.push(child);
-        } else {
-            panic!("An element can't have a resource file, and inline children. Child: {:?}",
-                   child);
-        }
-    }
     /// TODO
     pub fn add_children(&mut self, children: &mut Vec<AstResult>) {
         self.children.append(children)

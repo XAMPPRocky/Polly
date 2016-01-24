@@ -1,0 +1,8 @@
+&body(@name) {
+    /body {
+        /p {Hello @name\!}
+    }
+}
+
+/!DOCTYPE(html)
+/html&body(@world){}

@@ -111,7 +111,8 @@ impl<'a> Lexer<'a> {
                             OPENBRACE |
                             OPENPARAM |
                             POUND |
-                            SINGLEQUOTE => {
+                            SINGLEQUOTE |
+                            CARRAGE_RETURN => {
                                 return Some(Word(index, word));
                             }
                             ch => {

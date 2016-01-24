@@ -20,7 +20,7 @@ impl Lexeme {
         match *self {
             Symbol(_, _) => 1,
             Word(_, ref word) => word.len(),
-            Empty => 0,
+            Empty => unreachable!(),
         }
     }
 
