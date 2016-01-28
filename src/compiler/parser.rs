@@ -7,7 +7,7 @@ use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
-use template::COMPONENTS;
+use template::GlobalComponents;
 
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = Result<Token, AstError>;
@@ -340,8 +340,8 @@ impl Parser {
                         unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                     }
                 }
-                let mut global_components = COMPONENTS.lock().unwrap();
-                global_components.insert(component.name().clone(), component);
+
+                GlobalComponents::unlock().insert(component.name().clone(), component);
                 Ok(Text(String::new()))
             }
             Some(Symbol(index, Dollar)) => unimplemented!(),

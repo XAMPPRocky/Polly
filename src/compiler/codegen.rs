@@ -3,7 +3,7 @@ use std::process;
 
 use serde_json::Value;
 use super::*;
-use template::COMPONENTS;
+use template::GlobalComponents;
 
 macro_rules! exit {
     () => {{
@@ -54,8 +54,7 @@ impl<'a> Codegen<'a> {
     }
 
     fn from_component(&self, component_call: ComponentCall) -> String {
-        let global_components = COMPONENTS.lock().unwrap();
-        if let Some(component) = global_components.get(&*component_call.name()) {
+        if let Some(component) = GlobalComponents::unlock().get(&*component_call.name()) {
             let args = component.args();
             let values = component_call.values();
             let mut arg_map: BTreeMap<String, Value> = BTreeMap::new();
