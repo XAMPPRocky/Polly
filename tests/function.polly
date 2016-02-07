@@ -1,0 +1,11 @@
+&list(@language) {
+    /li {@language}
+}
+/!DOCTYPE(html)
+/html {
+    /body {
+        /ul {
+            $each(array = @array, component = &list)
+        }
+    }
+}
