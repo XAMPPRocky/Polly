@@ -3,7 +3,7 @@ use std::process;
 
 use serde_json::Value;
 use super::*;
-use template::{GlobalComponents, GlobalFunctions};
+use template::{Template, GlobalComponents, GlobalFunctions};
 
 macro_rules! exit {
     () => {{
@@ -14,22 +14,20 @@ macro_rules! exit {
       }  
     }}
 }
-#[derive(Clone, Debug, Default)]
+
 pub struct Codegen<'a> {
+    parent: &'a Template<'a>,
     elements: Vec<AstResult>,
     source: &'a str,
-    file: &'a str,
-    variables: BTreeMap<String, Value>,
 }
 
 impl<'a> Codegen<'a> {
-    fn from_parser(parser: &'a Parser, file: &'a str, source: &'a str, json: Value) -> Self {
+    fn new(template: &Template, ast: Vec<AstResult>, source: &'a str, json: Value) -> Self {
         if let Value::Object(object) = json {
             Codegen {
+                parent: template,
                 elements: parser.output(),
-                file: file,
                 source: source,
-                variables: object,
             }
         } else {
             println!("JSON wasn't valid. JSON: {:?}", json);
@@ -37,47 +35,38 @@ impl<'a> Codegen<'a> {
         }
     }
 
-    pub fn codegen(source: &str, file: &str, json: Value) -> String {
-        let mut html = String::new();
-
+    pub fn codegen(template: &Template, source: &str, file: &str, json: Value) -> String {
         let lexer = Lexer::lex(source);
         let parser = Parser::from_lexer(&lexer);
-        let codegen = Codegen::from_parser(&parser, file, source, json);
-        for element in codegen.elements.iter() {
-            if let Some(string) = codegen.render(element) {
-                html.push_str(&*string);
-            } else {
-                break;
-            }
-        }
-        html
+        let codegen = Codegen::new(template, parser.output(), file, source, json);
+        codegen.to_html()
     }
 
-    pub fn call_component(component: &Component,
-                          arg_map: Option<BTreeMap<String, Value>>)
-                          -> String {
+    pub fn call_component(template: &Template, component: &Component, arg_map: Option<BTreeMap<String, Value) -> String {
         let codegen = if let Some(arg_map) = arg_map {
-            Codegen {
-                elements: component.ast(),
-                variables: arg_map,
-                ..Codegen::default()
-            }
+            Codegen::new(template, component.ast(), template.source(), arg_map)
         } else {
-            Codegen { elements: component.ast(), ..Codegen::default() }
+            Codegen::new(template, component.ast(), template.source(), BTreeMap::new())
         };
+
+        codegen.to_html()
+    }
+
+    fn to_html(&mut self) -> String {
         let mut html = String::new();
-        for element in codegen.elements.iter() {
-            if let Some(string) = codegen.render(element) {
+
+        for element in self.elements.iter() {
+            if let Some(string) = self.render(element) {
                 html.push_str(&*string);
             } else {
                 break;
             }
         }
         html
-
     }
+
     fn from_component(&self, component_call: ComponentCall) -> String {
-        if let Some(component) = GlobalComponents::unlock().get(&*component_call.name()) {
+        if let Some(component) = self.parent.components().get(&*component_call.name()) {
             let args = component.args();
             let arg_values = component_call.values();
             let mut arg_map = BTreeMap::new();
@@ -89,7 +78,7 @@ impl<'a> Codegen<'a> {
                     match *arg {
                         &ArgKey::Json(ref arg_name) => {
                             if let &&ArgKey::Json(ref arg_value) = value {
-                                let value = match self.variables.get(&*arg_value) {
+                                let value = match self.parent.variables().get(&*arg_value) {
                                     Some(text) => text.clone(),
                                     None => Value::Null,
                                 };
@@ -100,7 +89,7 @@ impl<'a> Codegen<'a> {
                         &ArgKey::Comp(ref arg_name) => {
                             println!("Components can't be passed to other components, they are \
                                       global so you shouldn't need to do it.");
-                            exit!()
+                            exit!();
                         }
                     }
                 }
@@ -109,15 +98,7 @@ impl<'a> Codegen<'a> {
                     variables: arg_map,
                     ..self.clone()
                 };
-                let mut html = String::new();
-                for element in codegen.elements.iter() {
-                    if let Some(string) = codegen.render(element) {
-                        html.push_str(&*string);
-                    } else {
-                        break;
-                    }
-                }
-                html
+                codegen.to_html()
             } else {
                 println!("Incorrect number of arguments passed");
                 exit!()
@@ -198,7 +179,7 @@ impl<'a> Codegen<'a> {
             }
             &Ok(Text(ref text)) => Some(text.clone()),
             &Ok(Variable(ref variable)) => {
-                match self.variables.get(variable) {
+                match self.parent.variables().get(variable) {
                     Some(value) => Some(value_to_string(&value)),
                     None => Some(String::new()),
                 }
@@ -214,7 +195,7 @@ impl<'a> Codegen<'a> {
 
                     match value {
                         ArgKey::Json(id) => {
-                            let real_value = self.variables.get(&*id);
+                            let real_value = self.parent.variables().get(&*id);
                             let real_value = match real_value {
                                 Some(value) => Some(value.clone()),
                                 None => None,

@@ -81,14 +81,28 @@ impl GlobalFunctions {
     }
 }
 
-pub struct Template {
-    variables: Value,
+#[derive(Default)]
+pub struct Template<'a> {
+    codegen: Codegen<'a>,
+    file_name: &'a str,
+    source: &'a str,
+    variables: BTreeMap<String, Value>,
+    functions: HashMap<&'a str, Box<Fn(BTreeMap<String, ArgValue>) -> Result<String, String>>>,
+    components: HashMap<String, Component>,
 }
 
 
-impl Template {
+impl<'a> Template<'a> {
     pub fn load(file: &str) -> Self {
         unimplemented!()
+    }
+
+    pub fn variables(&self) -> BTreeMap<String, Value> {
+        self.variables
+    }
+
+    pub fn source(&self) -> &str {
+        self.source
     }
 
     pub fn call_component(component: &Component) -> String {
