@@ -1,10 +1,10 @@
-use super::Args;
+use super::ArgKey;
 use compiler::AstResult;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Component {
     name: String,
-    args: Vec<Args>,
+    args: Vec<ArgKey>,
     ast: Vec<AstResult>,
 }
 
@@ -21,8 +21,12 @@ impl Component {
         self.name.clone()
     }
 
-    pub fn args(&self) -> Vec<Args> {
+    pub fn args(&self) -> Vec<ArgKey> {
         self.args.clone()
+    }
+
+    pub fn number_of_args(&self) -> usize {
+        self.args().len()
     }
 
     pub fn ast(&self) -> Vec<AstResult> {
@@ -30,7 +34,7 @@ impl Component {
     }
 
     pub fn add_arg_value(&mut self, value: String) {
-        self.args.push(Args::Text(value));
+        self.args.push(ArgKey::Json(value));
     }
     pub fn add_children(&mut self, children: &mut Vec<AstResult>) {
         self.ast.append(children);
@@ -40,7 +44,7 @@ impl Component {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComponentCall {
     name: String,
-    values: Vec<Args>,
+    values: Vec<ArgKey>,
 }
 
 impl ComponentCall {
@@ -62,11 +66,11 @@ impl ComponentCall {
         self.name.clone()
     }
 
-    pub fn values(&self) -> Vec<Args> {
+    pub fn values(&self) -> Vec<ArgKey> {
         self.values.clone()
     }
 
     pub fn add_value(&mut self, name: String) {
-        self.values.push(Args::Text(name));
+        self.values.push(ArgKey::Json(name));
     }
 }

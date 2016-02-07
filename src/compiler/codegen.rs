@@ -3,7 +3,7 @@ use std::process;
 
 use serde_json::Value;
 use super::*;
-use template::GlobalComponents;
+use template::{GlobalComponents, GlobalFunctions};
 
 macro_rules! exit {
     () => {{
@@ -14,7 +14,7 @@ macro_rules! exit {
       }  
     }}
 }
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Codegen<'a> {
     elements: Vec<AstResult>,
     source: &'a str,
@@ -53,30 +53,62 @@ impl<'a> Codegen<'a> {
         html
     }
 
+    pub fn call_component(component: &Component,
+                          arg_map: Option<BTreeMap<String, Value>>)
+                          -> String {
+        let codegen = if let Some(arg_map) = arg_map {
+            Codegen {
+                elements: component.ast(),
+                variables: arg_map,
+                ..Codegen::default()
+            }
+        } else {
+            Codegen { elements: component.ast(), ..Codegen::default() }
+        };
+        let mut html = String::new();
+        for element in codegen.elements.iter() {
+            if let Some(string) = codegen.render(element) {
+                html.push_str(&*string);
+            } else {
+                break;
+            }
+        }
+        html
+
+    }
     fn from_component(&self, component_call: ComponentCall) -> String {
         if let Some(component) = GlobalComponents::unlock().get(&*component_call.name()) {
             let args = component.args();
-            let values = component_call.values();
-            let mut arg_map: BTreeMap<String, Value> = BTreeMap::new();
-            println!("{:?}", (args.len(), values.len()));
-            if args.len() == values.len() {
-                let zipped = args.iter().zip(values.iter());
+            let arg_values = component_call.values();
+            let mut arg_map = BTreeMap::new();
+            if args.len() == arg_values.len() {
+                let zipped = args.iter().zip(arg_values.iter());
 
                 for (ref arg, ref value) in zipped {
 
                     match *arg {
-                        &Args::Text(ref arg_name) => {
-                            let &Args::Text(ref arg_value) = *value;
-                            let value = match self.variables.get(arg_value) {
-                                Some(text) => text.clone(),
-                                None => Value::Null,
-                            };
-                            arg_map.insert(arg_name.clone(),
-                                           Value::String(value_to_string(&value)));
+                        &ArgKey::Json(ref arg_name) => {
+                            if let &&ArgKey::Json(ref arg_value) = value {
+                                let value = match self.variables.get(&*arg_value) {
+                                    Some(text) => text.clone(),
+                                    None => Value::Null,
+                                };
+                                arg_map.insert(arg_name.clone(),
+                                               Value::String(value_to_string(&value)));
+                            }
+                        }
+                        &ArgKey::Comp(ref arg_name) => {
+                            println!("Components can't be passed to other components, they are \
+                                      global so you shouldn't need to do it.");
+                            exit!()
                         }
                     }
                 }
-                let codegen = Codegen { elements: component.ast(), ..self.clone() };
+                let codegen = Codegen {
+                    elements: component.ast(),
+                    variables: arg_map,
+                    ..self.clone()
+                };
                 let mut html = String::new();
                 for element in codegen.elements.iter() {
                     if let Some(string) = codegen.render(element) {
@@ -105,14 +137,14 @@ impl<'a> Codegen<'a> {
                 let mut html = Vec::new();
                 let tag = &**element.tag();
                 const HTML_ERROR: &'static str = "Couldn't write to html buffer.";
-                write!(&mut html, "<{tag}", tag = tag).ok().expect(HTML_ERROR);
+                write!(&mut html, "<{}", tag).ok().expect(HTML_ERROR);
 
                 if !element.classes().is_empty() {
+
                     write!(&mut html, " class=\"").ok().expect(HTML_ERROR);
                     let mut classes_iter = element.classes().iter();
-                    write!(&mut html, "{}", classes_iter.next().unwrap())
-                        .ok()
-                        .expect(HTML_ERROR);
+                    write!(&mut html, "{}", classes_iter.next().unwrap()).ok().expect(HTML_ERROR);
+
                     for class in classes_iter {
                         if !class.is_empty() {
                             write!(&mut html, " {}", &*class).ok().expect(HTML_ERROR);
@@ -125,9 +157,7 @@ impl<'a> Codegen<'a> {
                     for (key, value) in element.attributes() {
                         if !key.is_empty() {
                             if !value.is_empty() {
-                                write!(&mut html, " {key}=\"{value}\"", key = key, value = value)
-                                    .ok()
-                                    .expect(HTML_ERROR);
+                                write!(&mut html, " {}=\"{}\"", key, value).ok().expect(HTML_ERROR);
                             } else {
                                 write!(&mut html, " {}", key).ok().expect(HTML_ERROR);
                             }
@@ -162,7 +192,7 @@ impl<'a> Codegen<'a> {
                     }
                 }
 
-                write!(&mut html, "</{tag}>", tag = tag).ok().expect(HTML_ERROR);
+                write!(&mut html, "</{}>", tag).ok().expect(HTML_ERROR);
 
                 Some(String::from_utf8(html).unwrap())
             }
@@ -175,7 +205,46 @@ impl<'a> Codegen<'a> {
             }
             &Ok(Comp(ref ast)) => unreachable!(),
             &Ok(CompCall(ref component_call)) => Some(self.from_component(component_call.clone())),
-            &Ok(Function(ref function)) => unimplemented!(),
+            &Ok(Function(ref function)) => {
+                println!("{:#?}", function);
+                let components = GlobalComponents::unlock();
+                let mut arguments: BTreeMap<String, ArgValue> = BTreeMap::new();
+
+                for (key, value) in function.args().clone() {
+
+                    match value {
+                        ArgKey::Json(id) => {
+                            let real_value = self.variables.get(&*id);
+                            let real_value = match real_value {
+                                Some(value) => Some(value.clone()),
+                                None => None,
+                            };
+                            arguments.insert(key, ArgValue::Json(real_value));
+                        }
+                        ArgKey::Comp(id) => {
+                            let real_value = components.get(&*id);
+                            let real_value = match real_value {
+                                Some(value) => Some(value.clone()),
+                                None => None,
+                            };
+                            arguments.insert(key, ArgValue::Comp(real_value));
+                        }
+                    }
+                }
+
+                if let Some(fun) = GlobalFunctions::unlock().get(&*function.identifier()) {
+                    match fun(arguments) {
+                        Ok(string) => Some(string),
+                        Err(error) => {
+                            println!("{}", error);
+                            exit!();
+                        }
+                    }
+                } else {
+                    println!("Function doesn't exist.");
+                    exit!();
+                }
+            }
             &Err(ref error) => {
                 if *error == super::AstError::Eof {
                     return None;
@@ -220,7 +289,7 @@ impl<'a> Codegen<'a> {
                 println!("{} {}", file_name_print, section.trim());
                 println!("{0:>1$}",
                          underline,
-                         col_number + 3 + file_name_print.len() -
+                         2 + col_number + file_name_print.len() -
                          (section.len() - section.trim().len()));
                 exit!()
             }
@@ -281,9 +350,25 @@ mod tests {
 
     #[test]
     fn component() {
-
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
         json.insert("world".to_owned(), Value::String("World".to_owned()));
-        assert!(!read_file("./tests/component.poly", Value::Object(json)).is_empty());
+        assert_eq!(read_file("./tests/component.poly", Value::Object(json)),
+                   BASIC);
     }
+
+    #[test]
+    fn function() {
+        use serde_json::Value::*;
+        let mut json: BTreeMap<String, Value> = BTreeMap::new();
+        let expected = "<!DOCTYPE \
+                        html><html><body><ul><li>Rust</li><li>C++</li><li>JavaScript</li></ul></bo\
+                        dy></html>";
+        json.insert("array".to_owned(),
+                    Array(vec![String("Rust".to_owned()),
+                               String("C++".to_owned()),
+                               String("JavaScript".to_owned())]));
+        assert_eq!(read_file("./tests/function.polly", Object(json)), expected);
+
+    }
+
 }

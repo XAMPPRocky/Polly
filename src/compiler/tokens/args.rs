@@ -1,4 +1,23 @@
+use serde_json::Value;
+use super::Component;
 #[derive(Debug, Clone, PartialEq)]
-pub enum Args {
-    Text(String),
+pub enum ArgKey {
+    Json(String),
+    Comp(String),
+}
+
+impl ArgKey {
+    pub fn value(&self) -> String {
+        use self::ArgKey::*;
+        match self {
+            &Json(ref string) => string.clone(),
+            &Comp(ref string) => string.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ArgValue {
+    Json(Option<Value>),
+    Comp(Option<Component>),
 }

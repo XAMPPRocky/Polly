@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error;
 
-use super::{Args, Component, ComponentCall, Element, Lexeme};
+use super::{ArgKey, Component, ComponentCall, Element, FunctionCall, Lexeme};
 use self::AstError::*;
 
 /// TODO
@@ -19,7 +19,7 @@ pub enum Token {
     /// TODO
     CompCall(ComponentCall),
     /// TODO
-    Function(Vec<Args>),
+    Function(FunctionCall),
 }
 
 /// Errors defining all the errors that can be encountered while parsing.
@@ -35,6 +35,8 @@ pub enum AstError {
     InvalidComponent(Lexeme),
     /// No name attached to element.
     InvalidElement(Lexeme),
+    /// No name attached to function.
+    InvalidFunctionCall(Lexeme),
     /// Token that isn't ", ', or a word. 
     InvalidTokenAfterEqualsAttributes(Lexeme),
     /// Token that isn't ), =, or a word. 
@@ -63,8 +65,9 @@ impl AstError {
             Eof => (0, 0),
             ExpectedCompCall(ref lexeme) => (lexeme.index(), lexeme.length()),
             ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidComponent(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
+            InvalidFunctionCall(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidTokenAfterEqualsAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidTokenAfterWordInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidTokenInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
@@ -85,8 +88,9 @@ impl error::Error for AstError {
             Eof => "The file ended normally.",
             ExpectedCompCall(_) => "Component names can only be words.",
             ExpectedVariable(_) => "Variable names can only be words.",
-            InvalidElement(_) => "Element names can only be words.",
             InvalidComponent(_) => "Element names can only be words.",
+            InvalidElement(_) => "Element names can only be words.",
+            InvalidFunctionCall(_) => "Function names can only be words.",
             InvalidTokenAfterEqualsAttributes(_) => "Expected quotes after equals.",
             InvalidTokenAfterWordInAttributes(_) => "Unexpected token after a key word.",
             InvalidTokenInAttributes(_) => {
@@ -112,8 +116,9 @@ impl Display for AstError {
             Eof => return write!(f, "{}", self.description()),
             ExpectedCompCall(ref lexeme) => lexeme,
             ExpectedVariable(ref lexeme) => lexeme,
-            InvalidElement(ref lexeme) => lexeme,
             InvalidComponent(ref lexeme) => lexeme,
+            InvalidElement(ref lexeme) => lexeme,
+            InvalidFunctionCall(ref lexeme) => lexeme,
             InvalidTokenAfterEqualsAttributes(ref lexeme) => lexeme,
             InvalidTokenAfterWordInAttributes(ref lexeme) => lexeme,
             InvalidTokenInAttributes(ref lexeme) => lexeme,

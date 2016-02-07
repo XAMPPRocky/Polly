@@ -1,7 +1,0 @@
-/html {
-    /body {
-        /ul {
-            $each(@values, &li)
-        }
-    }
-}

@@ -98,21 +98,7 @@ impl<'a> Lexer<'a> {
                             // The following case is for determining if a character divides words or
                             // if it is packaged with the words. So things like "Hello}" comes out
                             // as Text: "Hello" Operator: "}"
-                            AMPERSAND |
-                            AT |
-                            BACKSLASH |
-                            CLOSEBRACE |
-                            CLOSEPARAM |
-                            DOLLAR |
-                            DOT |
-                            DOUBLEQUOTE |
-                            EQUALS |
-                            FORWARDSLASH |
-                            OPENBRACE |
-                            OPENPARAM |
-                            POUND |
-                            SINGLEQUOTE |
-                            CARRAGE_RETURN => {
+                            ch if !ch.is_alphanumeric() && !ch.is_whitespace() => {
                                 return Some(Word(index, word));
                             }
                             ch => {

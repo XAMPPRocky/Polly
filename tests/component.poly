@@ -1,6 +1,6 @@
 &body(@name) {
     /body {
-        /p {Hello @name\!}
+        /p {Hello @name!}
     }
 }
 
