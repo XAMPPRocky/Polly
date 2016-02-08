@@ -85,7 +85,7 @@ impl<'a> Lexer<'a> {
             Some((index, STAR)) => Some(Symbol(index, Star)),
             Some((index, character)) => {
                 let mut word = if leading_space {
-                    ' '.to_string()
+                    String::from(" ")
                 } else {
                     String::new()
                 };

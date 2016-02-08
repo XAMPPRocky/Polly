@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -7,8 +8,8 @@ use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
-use template::GlobalComponents;
 
+use template::Template;
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = Result<Token, AstError>;
 
@@ -31,7 +32,7 @@ macro_rules! get_identifer {
 
 
 macro_rules! get_children {
-    ($token:expr, $parent:expr) => 
+    ($parser:expr, $token:expr, $parent:expr) => 
     {{
         let mut depth: usize = 0;
         let mut open_brace_index: usize = 0;
@@ -66,41 +67,46 @@ macro_rules! get_children {
             return Err(UnclosedOpenBraces(close_brace_index));
         }
         if !children.is_empty() {
-            $parent.add_children(&mut Parser::parse(children).output());
+            $parent.add_children(&mut Parser::parse_children($parser, children).output());
         }
     }}
 }
 
 /// The struct detailing the parser itself.
-pub struct Parser {
+pub struct Parser<'a> {
+    parent: RefCell<Template<'a>>,
     input: Peekable<IntoIter<Lexeme>>,
     output: Vec<AstResult>,
 }
 
-impl Parser {
+impl<'a> Parser<'a> {
     /// Generates Parser from Lexer
-    pub fn from_lexer(lexer: &Lexer) -> Self {
-        let mut parser = Parser { input: lexer.output().into_iter().peekable(), output: Vec::new(),}; 
-        loop {
-            match parser.parse_token() {
-                Err(Eof) => break,
-                token => parser.push(token),
-            }
-        }
+    pub fn from_lexer(parent: &'a Template, lexer: &'a Lexer) -> Self {
+        let mut parser = Parser { parent: parent, input: lexer.output().into_iter().peekable(), output: Vec::new(),}; 
+        parser.parse();
         parser
     }
 
-    fn parse(input: Vec<Lexeme>) -> Self {
-        let mut parser = Parser { input: input.into_iter().peekable(), output:Vec::new(), };
-
+    fn parse(&'a mut self) {
         loop {
-            match parser.parse_token() {
+            match self.parse_token() {
                 Err(Eof) => break,
-                token => parser.push(token),
+                    token => self.push(token),
             }
-        }
+        } 
+    }
 
-        parser
+    fn child_parser(parent: &'a Parser, children: Vec<Lexeme>) -> Self {
+        Parser {
+            input: children.into_iter().peekable(),
+            ..*parent.clone()
+        }
+    }
+
+    fn parse_children(&'a mut self, children: Vec<Lexeme>) -> Self{
+        let mut child_parser = Parser::child_parser(self, children);
+        child_parser.parse();
+        child_parser
     }
 
     fn push(&mut self, token: AstResult) {
@@ -123,6 +129,11 @@ impl Parser {
         self.output.to_vec()
     }
 
+
+    pub fn insert_component(&self, name: String, component: Component) {
+        self.parent.borrow_mut().insert_component(name, component);
+    }
+
     fn read_leading_quotes(&mut self) -> String {
         let mut value = String::new();
         while let Some(token) = self.take() {
@@ -136,7 +147,7 @@ impl Parser {
         value
     }
 
-    fn parse_component(&mut self, allow_definition: bool, index: usize) -> AstResult {
+    fn parse_component(&'a mut self, allow_definition: bool, index: usize) -> AstResult {
         let name = get_identifer!(self.take(), index, InvalidComponent);
         let mut component = Component::new(name);
 
@@ -169,7 +180,7 @@ impl Parser {
                 token @ Symbol(_, OpenBrace) => {
                     let _ = self.take();
                     if allow_definition {
-                        get_children!(self.take(), component);
+                        get_children!(self, self.take(), component);
                         break;
                     } else {
                         return Err(ExpectedCompCall(token));
@@ -179,7 +190,7 @@ impl Parser {
             }
         }
         if allow_definition {
-            GlobalComponents::unlock().insert(component.name().clone(), component);
+            self.insert_component(component.name().clone(), component);
             Ok(Text(String::new()))
         } else {
             // This unreachable, because with allow_definition = false, we should either get a
@@ -188,7 +199,7 @@ impl Parser {
         }
     }
 
-    fn parse_element(&mut self, index: usize) -> AstResult {
+    fn parse_element(&'a mut self, index: usize) -> AstResult {
         let tag = get_identifer!(self.take(), index, InvalidElement);
         let mut element = Element::new(tag.trim().to_owned());
 
@@ -276,7 +287,7 @@ impl Parser {
                     }
                 }
                 Symbol(_, OpenBrace) => {
-                    get_children!(self.take(), element);
+                    get_children!(self, self.take(), element);
                     break;
                 }
                 Word(_, text) => element.add_text(text),
@@ -309,7 +320,7 @@ impl Parser {
         }
     }
 
-    fn parse_token(&mut self) -> AstResult {
+    fn parse_token(&'a mut self) -> AstResult {
 
         match self.take() {
             // concatenate all the word tokens that are adjacent to each other into a single "Text"
