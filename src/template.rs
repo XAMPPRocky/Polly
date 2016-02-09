@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde_json::Value;
 
-use compiler::tokens::{ArgKey, ArgValue, Component};
+use compiler::tokens::{Component, ArgValue};
 use compiler::codegen::Codegen;
 pub type PolyFn = Fn(BTreeMap<String, ArgValue>) -> Result<String, String> + Send;
 

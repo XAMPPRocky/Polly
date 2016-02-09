@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error;
 
-use super::{ArgKey, Component, ComponentCall, Element, FunctionCall, Lexeme};
+use super::{Component, ComponentCall, Element, FunctionCall, Lexeme};
 use self::AstError::*;
 
 /// TODO

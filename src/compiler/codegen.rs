@@ -97,7 +97,7 @@ impl<'a> Codegen<'a> {
                                                Value::String(value_to_string(&value)));
                             }
                         }
-                        &ArgKey::Comp(ref arg_name) => {
+                        &ArgKey::Comp(_) => {
                             println!("Components can't be passed to other components, they are \
                                       global so you shouldn't need to do it.");
                             exit!()
@@ -203,7 +203,7 @@ impl<'a> Codegen<'a> {
                     None => Some(String::new()),
                 }
             }
-            &Ok(Comp(ref ast)) => unreachable!(),
+            &Ok(Comp(_)) => unreachable!(),
             &Ok(CompCall(ref component_call)) => Some(self.from_component(component_call.clone())),
             &Ok(Function(ref function)) => {
                 println!("{:#?}", function);
@@ -322,7 +322,8 @@ fn value_to_string(value: &Value) -> String {
         }
     }
 }
-#[allow(dead_code)]
+
+#[allow(dead_code, unused_imports)]
 mod tests {
     use super::Codegen;
     use std::fs::File;
