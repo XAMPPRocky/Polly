@@ -5,96 +5,97 @@ use serde_json::Value;
 
 use compiler::tokens::{ArgKey, ArgValue, Component};
 use compiler::codegen::Codegen;
-pub type PolyFn = Box<Fn(BTreeMap<String, ArgValue>) -> Result<String, String>>;
+pub type PolyFn = Fn(BTreeMap<String, ArgValue>) -> Result<String, String> + Send;
 
-pub struct Template<'a> {
-    codegen: Codegen<'a>,
-    file_name: &'a str,
-    source: &'a str,
-    variables: BTreeMap<String, Value>,
-    functions: HashMap<&'a str, PolyFn>,
-    components: HashMap<String, Component>,
+lazy_static! {
+    static ref COMPONENTS: Mutex<HashMap<String, Component>> = {
+        Mutex::new(HashMap::new())
+    };
+    static ref FUNCTIONS: Arc<Mutex<HashMap<&'static str, Box<PolyFn>>>> = {
+        let mut map:HashMap<&'static str, Box<PolyFn>> = HashMap::new();
+        let each = |args: BTreeMap<String, ArgValue>| {
+            let mut output = String::new();
+            if let Some(&ArgValue::Json(Some(Value::Array(ref array)))) = args.get("array") {
+                if let Some(&ArgValue::Comp(Some(ref component))) = args.get("component") {
+                    match component.number_of_args() {
+                        0 => {
+                            for _ in array {
+                                output.push_str(&*Template::call_component(&component));
+                            }
+                            Ok(output)
+                        },
+                        1 => {
+                            let name = component.args()[0].value();
+                            for item in array {
+                                let mut map = BTreeMap::new();
+                                map.insert(name.clone(), item.clone());
+                                output.push_str(&*Template::call_component_with_args(&component, map));
+                            }
+                                Ok(output)   
+                        }
+                        _ => {
+                            if let Some(&Value::Object(_)) = array.first() {
+                                let mut iter = array.iter();
+                                while let Some(&Value::Object(ref object)) = iter.next() {
+                                   let mut map = BTreeMap::new();
+                                   for key in component.args() {
+                                       let key = key.value();
+                                       if let Some(value) = object.get(&*key) {
+                                           map.insert(key, value.clone());
+                                       } 
+                                   }
+                                   output.push_str(&*Template::call_component_with_args(&component, map));
+                                }
+                                Ok(output)
+                            } else {
+                                Err(String::from("JSON wasn't an object, and the component has\
+                                 multiple arguments, so it can't be properly destructured."))
+                            }
+                        } 
+                    }
+                } else {
+                    Err(String::from("type passed in wasn't a component"))
+                }
+
+            } else {
+                Err(format!("type passed in wasn't an array it was: {:#?}", args.get("array")))
+            }
+        };
+        map.insert("each", Box::new(each));
+        Arc::new(Mutex::new(map))
+    };
+}
+
+pub struct GlobalComponents;
+
+impl GlobalComponents {
+    pub fn unlock() -> MutexGuard<'static, HashMap<String, Component>> {
+        COMPONENTS.lock().unwrap()
+    }
+}
+pub struct GlobalFunctions;
+
+impl GlobalFunctions {
+    pub fn unlock() -> MutexGuard<'static, HashMap<&'static str, Box<PolyFn>>> {
+        FUNCTIONS.lock().unwrap()
+    }
+}
+
+pub struct Template {
+    variables: Value,
 }
 
 
-impl<'a> Template<'a> {
-    pub fn load_with_json(file: &str, json: Value) -> Self {
-        unimplemented!()
-    }
+impl Template {
     pub fn load(file: &str) -> Self {
         unimplemented!()
     }
 
-    pub fn variables(&self) -> &BTreeMap<String, Value> {
-        &self.variables
+    pub fn call_component(component: &Component) -> String {
+        Codegen::call_component(component, None)
     }
 
-    pub fn file(&self) -> &str {
-        self.file_name
+    pub fn call_component_with_args(component: &Component, map: BTreeMap<String, Value>) -> String {
+        Codegen::call_component(component, Some(map))
     }
-
-    pub fn source(&self) -> &str {
-        self.source
-    }
-
-    pub fn components(&self) -> &HashMap<String, Component> {
-        &self.components
-    }
-
-    pub fn insert_component(&mut self, name: String, component: Component){
-        self.components.insert(name, component);
-    }
-
-    pub fn call_component(&self, component: &Component) -> String {
-        Codegen::call_component(self, component, None)
-    }
-
-    pub fn call_component_with_args(&self, component: &Component, map: BTreeMap<String, Value>) -> String {
-        Codegen::call_component(self, component, Some(map))
-    }
-
-    pub fn get_function(&self, name: String) -> Option<&PolyFn> {
-        self.functions.get(&*name)
-    }
-}
-
-#[allow(dead_code)]
-mod tests {
-    use compiler::Codegen;
-    use std::fs::File;
-    use std::io::Read;
-    use std::collections::BTreeMap;
-    use serde_json::Value;
-
-    const BASIC: &'static str = "<!DOCTYPE html><html><body><p>Hello World!</p></body></html>";
-
-    #[test]
-    fn element() {
-        assert_eq!(Template::load_with_json("./tests/element.poly", Value::Object(BTreeMap::new())),
-                   BASIC);
-    }
-
-    #[test]
-    fn component() {
-        let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        json.insert("world".to_owned(), Value::String("World".to_owned()));
-        assert_eq!(Template::load_with_json("./tests/component.poly", Value::Object(json)),
-                   BASIC);
-    }
-
-    #[test]
-    fn function() {
-        use serde_json::Value::*;
-        let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        let expected = "<!DOCTYPE \
-                        html><html><body><ul><li>Rust</li><li>C++</li><li>JavaScript</li></ul></bo\
-                        dy></html>";
-        json.insert("array".to_owned(),
-                    Array(vec![String("Rust".to_owned()),
-                               String("C++".to_owned()),
-                               String("JavaScript".to_owned())]));
-        assert_eq!(Template::load_with_json("./tests/function.polly", Object(json)), expected);
-
-    }
-
 }
