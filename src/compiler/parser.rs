@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -7,7 +8,7 @@ use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
-use template::GlobalComponents;
+use template::{PolyFn};
 
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = Result<Token, AstError>;
@@ -66,40 +67,28 @@ macro_rules! get_children {
             return Err(UnclosedOpenBraces(close_brace_index));
         }
         if !children.is_empty() {
-            $parent.add_children(&mut Parser::parse(children).output());
+            $parent.add_children(&mut Parser::new(children).output());
         }
     }}
 }
 
 /// The struct detailing the parser itself.
-pub struct Parser {
+pub struct Parser<'a> {
     input: Peekable<IntoIter<Lexeme>>,
     output: Vec<AstResult>,
+    components: HashMap<&'a str, Component>
 }
 
-impl Parser {
+impl<'a> Parser<'a> {
     /// Generates Parser from Lexer
-    pub fn from_lexer(lexer: &Lexer) -> Self {
-        let mut parser = Parser { input: lexer.output().into_iter().peekable(), output: Vec::new(),}; 
+    pub fn new(lexemes: Vec<Lexeme>) -> Self {
+        let mut parser = Parser { input: lexemes.into_iter().peekable(), output: Vec::new(), components: HashMap::new(),}; 
         loop {
             match parser.parse_token() {
                 Err(Eof) => break,
                 token => parser.push(token),
             }
         }
-        parser
-    }
-
-    fn parse(input: Vec<Lexeme>) -> Self {
-        let mut parser = Parser { input: input.into_iter().peekable(), output:Vec::new(), };
-
-        loop {
-            match parser.parse_token() {
-                Err(Eof) => break,
-                token => parser.push(token),
-            }
-        }
-
         parser
     }
 
@@ -121,6 +110,10 @@ impl Parser {
     pub fn output(&self) -> Vec<AstResult> {
         // Need to figure out a way to not clone the vector
         self.output.to_vec()
+    }
+
+    pub fn get_components(&self) -> HashMap<&str, Component> {
+        self.components.clone()
     }
 
     fn read_leading_quotes(&mut self) -> String {
@@ -179,7 +172,7 @@ impl Parser {
             }
         }
         if allow_definition {
-            GlobalComponents::unlock().insert(component.name().clone(), component);
+            self.components.insert(&*component.name().clone(), component);
             Ok(Text(String::new()))
         } else {
             // This unreachable, because with allow_definition = false, we should either get a

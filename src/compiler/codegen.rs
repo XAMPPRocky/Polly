@@ -1,9 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
 use std::process;
 
 use serde_json::Value;
 use super::*;
-use template::{GlobalComponents, GlobalFunctions};
+use template::{PolyFn};
 
 macro_rules! exit {
     () => {{
@@ -14,37 +15,45 @@ macro_rules! exit {
       }  
     }}
 }
-#[derive(Clone, Debug, Default)]
+
+#[derive(Default)]
 pub struct Codegen<'a> {
     elements: Vec<AstResult>,
     source: &'a str,
     file: &'a str,
     variables: BTreeMap<String, Value>,
+    functions: HashMap<&'a str, PolyFn>,
+    components: HashMap<&'a str, Component>,
 }
 
 impl<'a> Codegen<'a> {
-    fn from_parser(parser: &'a Parser, file: &'a str, source: &'a str, json: Value) -> Self {
-        if let Value::Object(object) = json {
-            Codegen {
-                elements: parser.output(),
-                file: file,
-                source: source,
-                variables: object,
-            }
-        } else {
-            println!("JSON wasn't valid. JSON: {:?}", json);
-            exit!();
+    pub fn new(ast: Vec<AstResult>, file: &'a str, source: &'a str, json: BTreeMap<String, Value>, components: HashMap<&'a str, Component>, functions: HashMap<&'a str, PolyFn>) -> Self {
+        Codegen {
+            elements: ast,
+            file: file,
+            source: source,
+            variables: json,
+            components: components,
+            functions: functions,
         }
     }
 
-    pub fn codegen(source: &str, file: &str, json: Value) -> String {
+    pub fn render_component(ast: Vec<AstResult>, json: BTreeMap<String, Value>, functions: HashMap<&'a str, PolyFn>, components: HashMap<&'a str, Component>) -> Self{
+        Codegen {
+            elements: ast,
+            variables: json,
+            file: "",
+            source: "",
+            functions: functions,
+            components: components,
+        }
+    }
+
+    pub fn to_html(&'a mut self) -> String {
         let mut html = String::new();
 
-        let lexer = Lexer::lex(source);
-        let parser = Parser::from_lexer(&lexer);
-        let codegen = Codegen::from_parser(&parser, file, source, json);
-        for element in codegen.elements.iter() {
-            if let Some(string) = codegen.render(element) {
+        for element in self.elements.iter() {
+            if let Some(string) = self.render(element) {
                 html.push_str(&*string);
             } else {
                 break;
@@ -60,24 +69,18 @@ impl<'a> Codegen<'a> {
             Codegen {
                 elements: component.ast(),
                 variables: arg_map,
-                ..Codegen::default()
+                file: "",
+                source: "",
+                functions: HashMap::new(),
+                components: HashMap::new(),
             }
         } else {
             Codegen { elements: component.ast(), ..Codegen::default() }
         };
-        let mut html = String::new();
-        for element in codegen.elements.iter() {
-            if let Some(string) = codegen.render(element) {
-                html.push_str(&*string);
-            } else {
-                break;
-            }
-        }
-        html
-
+        codegen.to_html()
     }
     fn from_component(&self, component_call: ComponentCall) -> String {
-        if let Some(component) = GlobalComponents::unlock().get(&*component_call.name()) {
+        if let Some(component) = self.components.get(&*component_call.name()) {
             let args = component.args();
             let arg_values = component_call.values();
             let mut arg_map = BTreeMap::new();
@@ -104,20 +107,7 @@ impl<'a> Codegen<'a> {
                         }
                     }
                 }
-                let codegen = Codegen {
-                    elements: component.ast(),
-                    variables: arg_map,
-                    ..self.clone()
-                };
-                let mut html = String::new();
-                for element in codegen.elements.iter() {
-                    if let Some(string) = codegen.render(element) {
-                        html.push_str(&*string);
-                    } else {
-                        break;
-                    }
-                }
-                html
+                Codegen::render_component(component.ast(), arg_map, self.functions, self.components).to_html()
             } else {
                 println!("Incorrect number of arguments passed");
                 exit!()
@@ -207,7 +197,6 @@ impl<'a> Codegen<'a> {
             &Ok(CompCall(ref component_call)) => Some(self.from_component(component_call.clone())),
             &Ok(Function(ref function)) => {
                 println!("{:#?}", function);
-                let components = GlobalComponents::unlock();
                 let mut arguments: BTreeMap<String, ArgValue> = BTreeMap::new();
 
                 for (key, value) in function.args().clone() {
@@ -222,7 +211,7 @@ impl<'a> Codegen<'a> {
                             arguments.insert(key, ArgValue::Json(real_value));
                         }
                         ArgKey::Comp(id) => {
-                            let real_value = components.get(&*id);
+                            let real_value = self.components.get(&*id);
                             let real_value = match real_value {
                                 Some(value) => Some(value.clone()),
                                 None => None,
@@ -232,7 +221,7 @@ impl<'a> Codegen<'a> {
                     }
                 }
 
-                if let Some(fun) = GlobalFunctions::unlock().get(&*function.identifier()) {
+                if let Some(fun) = self.functions.get(&*function.identifier()) {
                     match fun(arguments) {
                         Ok(string) => Some(string),
                         Err(error) => {
@@ -321,55 +310,4 @@ fn value_to_string(value: &Value) -> String {
             concated_string
         }
     }
-}
-
-#[allow(dead_code, unused_imports)]
-mod tests {
-    use super::Codegen;
-    use std::fs::File;
-    use std::io::Read;
-    use std::collections::BTreeMap;
-    use serde_json::Value;
-
-    const BASIC: &'static str = "<!DOCTYPE html><html><body><p>Hello World!</p></body></html>";
-    fn read_file(file_name: &str, json: Value) -> String {
-        let mut file = File::open(file_name)
-                           .ok()
-                           .expect("File doesn't exist, or isn't a file.");
-        let mut file_contents = String::new();
-        file.read_to_string(&mut file_contents).ok().expect("File contents corrupted");
-        let html = Codegen::codegen(&*file_contents, file_name, json);
-        println!("{:#?}", html);
-        html
-    }
-
-    #[test]
-    fn element() {
-        assert_eq!(read_file("./tests/element.poly", Value::Object(BTreeMap::new())),
-                   BASIC);
-    }
-
-    #[test]
-    fn component() {
-        let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        json.insert("world".to_owned(), Value::String("World".to_owned()));
-        assert_eq!(read_file("./tests/component.poly", Value::Object(json)),
-                   BASIC);
-    }
-
-    #[test]
-    fn function() {
-        use serde_json::Value::*;
-        let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        let expected = "<!DOCTYPE \
-                        html><html><body><ul><li>Rust</li><li>C++</li><li>JavaScript</li></ul></bo\
-                        dy></html>";
-        json.insert("array".to_owned(),
-                    Array(vec![String("Rust".to_owned()),
-                               String("C++".to_owned()),
-                               String("JavaScript".to_owned())]));
-        assert_eq!(read_file("./tests/function.polly", Object(json)), expected);
-
-    }
-
 }
