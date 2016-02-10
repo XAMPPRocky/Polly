@@ -14,7 +14,7 @@ pub type PolyFn = Box<Fn(BTreeMap<String, ArgValue>) -> Result<String, String> +
 
 macro_rules! std_functions {
     () => {{
-        let map: HashMap<&str, PolyFn> = HashMap::new();
+        let mut map: HashMap<String, PolyFn> = HashMap::new();
         let each = |args: BTreeMap<String, ArgValue>| {
             let mut output = String::new();
             if let Some(&ArgValue::Json(Some(Value::Array(ref array)))) = args.get("array") {
@@ -63,23 +63,23 @@ macro_rules! std_functions {
                 Err(format!("type passed in wasn't an array it was: {:#?}", args.get("array")))
             }
         };
-        map.insert("each", Box::new(each));
+        map.insert("each".to_owned(), Box::new(each));
         map
     }}
 }
 
-pub struct Template<'a>{
-    components: HashMap<&'a str, Component>,
+pub struct Template {
+    components: HashMap<String, Component>,
     file: PathBuf,
-    functions: HashMap<&'a str, PolyFn>,
-    source: &'a str,
+    functions: HashMap<String, PolyFn>,
+    source: String,
     variables: BTreeMap<String, Value>,
 }
 
 
-impl<'a> Template<'a> {
+impl Template {
     pub fn load<P: AsRef<Path>>(file_path: P) -> Self {
-        let file = File::open(file_path).unwrap();
+        let mut file = File::open(file_path.as_ref()).unwrap();
         let source = {
             let mut contents = String::new();
             file.read_to_string(&mut contents).unwrap();
@@ -90,32 +90,32 @@ impl<'a> Template<'a> {
             components: HashMap::new(),
             file: file_path.as_ref().to_path_buf(),
             functions: std_functions!(),
-            source: &*source,
+            source: source,
             variables: BTreeMap::new(),
         }
     }
 
-    pub fn json(self, json: BTreeMap<String, Value>) -> Self {
+    pub fn json(mut self, json: BTreeMap<String, Value>) -> Self {
         self.variables = json;
         self
     }
 
-    pub fn render(&'a mut self) -> String {
-        let lexer = Lexer::new(self.source);
+    pub fn render(&mut self) -> String {
+        let lexer = Lexer::lex(self.source);
         let parser = Parser::new(lexer.output());
         {self.add_components(parser.get_components());}
-        let file_name = self.file.file_name().unwrap().to_str().unwrap();
+        let file_name = self.file.file_name().unwrap().to_str().unwrap().to_owned();
         let mut codegen = Codegen::new(parser.output(), file_name, self.source, self.variables,self.components, self.functions);
         codegen.to_html()
     }
 
-    pub fn register_function(&'a mut self, name: &'a str, function: PolyFn) {
+    pub fn register_function(&mut self, name: String, function: PolyFn) {
         if let Some(_) = self.functions.insert(name, function) {
             panic!("Function already exists!");
         }
     }
 
-    pub fn add_components(&'a mut self, mut components: HashMap<&'a str, Component>) {
+    pub fn add_components(&mut self, mut components: HashMap<String, Component>) {
         for (key, value) in components.drain() {
             if let Some(_) = self.components.insert(key, value) {
                 panic!("Component was already defined.");

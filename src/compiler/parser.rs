@@ -73,13 +73,13 @@ macro_rules! get_children {
 }
 
 /// The struct detailing the parser itself.
-pub struct Parser<'a> {
+pub struct Parser {
     input: Peekable<IntoIter<Lexeme>>,
     output: Vec<AstResult>,
-    components: HashMap<&'a str, Component>
+    components: HashMap<String, Component>
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     /// Generates Parser from Lexer
     pub fn new(lexemes: Vec<Lexeme>) -> Self {
         let mut parser = Parser { input: lexemes.into_iter().peekable(), output: Vec::new(), components: HashMap::new(),}; 
@@ -112,7 +112,7 @@ impl<'a> Parser<'a> {
         self.output.to_vec()
     }
 
-    pub fn get_components(&self) -> HashMap<&str, Component> {
+    pub fn get_components(&self) -> HashMap<String, Component> {
         self.components.clone()
     }
 
@@ -172,7 +172,7 @@ impl<'a> Parser<'a> {
             }
         }
         if allow_definition {
-            self.components.insert(&*component.name().clone(), component);
+            self.components.insert(component.name().clone(), component);
             Ok(Text(String::new()))
         } else {
             // This unreachable, because with allow_definition = false, we should either get a

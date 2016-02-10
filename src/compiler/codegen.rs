@@ -17,17 +17,17 @@ macro_rules! exit {
 }
 
 #[derive(Default)]
-pub struct Codegen<'a> {
+pub struct Codegen {
     elements: Vec<AstResult>,
-    source: &'a str,
-    file: &'a str,
+    source: String,
+    file: String,
     variables: BTreeMap<String, Value>,
-    functions: HashMap<&'a str, PolyFn>,
-    components: HashMap<&'a str, Component>,
+    functions: HashMap<String, PolyFn>,
+    components: HashMap<String, Component>,
 }
 
-impl<'a> Codegen<'a> {
-    pub fn new(ast: Vec<AstResult>, file: &'a str, source: &'a str, json: BTreeMap<String, Value>, components: HashMap<&'a str, Component>, functions: HashMap<&'a str, PolyFn>) -> Self {
+impl Codegen {
+    pub fn new(ast: Vec<AstResult>, file: String, source: String, json: BTreeMap<String, Value>, components: HashMap<String, Component>, functions: HashMap<String, PolyFn>) -> Self {
         Codegen {
             elements: ast,
             file: file,
@@ -38,18 +38,18 @@ impl<'a> Codegen<'a> {
         }
     }
 
-    pub fn render_component(ast: Vec<AstResult>, json: BTreeMap<String, Value>, functions: HashMap<&'a str, PolyFn>, components: HashMap<&'a str, Component>) -> Self{
+    pub fn render_component(ast: Vec<AstResult>, json: BTreeMap<String, Value>, functions: HashMap<String, PolyFn>, components: HashMap<String, Component>) -> Self{
         Codegen {
             elements: ast,
             variables: json,
-            file: "",
-            source: "",
+            file: String::new(),
+            source: String::new(),
             functions: functions,
             components: components,
         }
     }
 
-    pub fn to_html(&'a mut self) -> String {
+    pub fn to_html(&mut self) -> String {
         let mut html = String::new();
 
         for element in self.elements.iter() {
@@ -65,12 +65,12 @@ impl<'a> Codegen<'a> {
     pub fn call_component(component: &Component,
                           arg_map: Option<BTreeMap<String, Value>>)
                           -> String {
-        let codegen = if let Some(arg_map) = arg_map {
+        let mut codegen = if let Some(arg_map) = arg_map {
             Codegen {
                 elements: component.ast(),
                 variables: arg_map,
-                file: "",
-                source: "",
+                file: String::new(),
+                source: String::new(),
                 functions: HashMap::new(),
                 components: HashMap::new(),
             }
