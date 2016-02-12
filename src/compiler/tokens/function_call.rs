@@ -1,3 +1,4 @@
+use std::convert::Into;
 use std::collections::BTreeMap;
 use super::*;
 
@@ -13,17 +14,19 @@ impl FunctionCall {
         FunctionCall { identifier: identifier.trim().to_owned(), ..Self::default() }
     }
 
-    pub fn identifier(&self) -> String {
-        self.identifier.clone()
+    pub fn identifier(&self) -> &str {
+        &self.identifier
     }
+    
     pub fn args(&self) -> &BTreeMap<String, ArgKey> {
         &self.arguments
     }
-    pub fn add_value_arg(&mut self, key: String, value: String) {
-        self.arguments.insert(key.trim().to_owned(), ArgKey::Json(value));
+    
+    pub fn add_value_arg<SK: AsRef<str>, SV: Into<String>>(&mut self, key: SK, value: SV) {
+        self.arguments.insert(key.as_ref().trim().into(), ArgKey::Json(value.into()));
     }
 
-    pub fn add_component_arg(&mut self, key: String, value: String) {
-        self.arguments.insert(key.trim().to_owned(), ArgKey::Comp(value));
+    pub fn add_component_arg<SK: AsRef<str>, SV: Into<String>>(&mut self, key: SK, value: SV) {
+        self.arguments.insert(key.as_ref().trim().into(), ArgKey::Comp(value.into()));
     }
 }

@@ -2,13 +2,11 @@ use std::collections::HashMap;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use super::lexer::Lexer;
 use super::tokens::*;
 use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
-use template::{PolyFn};
 
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = Result<Token, AstError>;
@@ -172,7 +170,7 @@ impl Parser {
             }
         }
         if allow_definition {
-            self.components.insert(component.name().clone(), component);
+            self.components.insert(component.name().into(), component);
             Ok(Text(String::new()))
         } else {
             // This unreachable, because with allow_definition = false, we should either get a
