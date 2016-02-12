@@ -3,7 +3,6 @@ use std::collections::{HashMap, BTreeMap};
 use std::io::prelude::*;
 use std::fs::File;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -13,7 +12,7 @@ use compiler::codegen::Codegen;
 use compiler::parser::Parser;
 use compiler::lexer::Lexer;
 pub type PolyFn =
-    Box<Fn(BTreeMap<String, ArgValue>, &Rc<RefCell<&mut Template>>) -> Result<String, String> + Send>;
+    Box<Fn(BTreeMap<String, ArgValue>, &Rc<RefCell<Template>>) -> Result<String, String> + Send>;
 
 fn std_functions() -> HashMap<String, PolyFn> {
     let mut map: HashMap<String, PolyFn> = HashMap::new();
@@ -33,7 +32,7 @@ fn std_functions() -> HashMap<String, PolyFn> {
                         for item in array {
                             let mut map = BTreeMap::new();
                             map.insert(name.clone(), item.clone());
-                            output.push_str(&*Template::call_component_with_args(&component,
+                            output.push_str(&*Template::call_component_with_args(component,
                                                                                  parent,
                                                                                  map));
                         }
@@ -92,24 +91,24 @@ impl Template {
         }
     }
 
-    pub fn call_component<'a>(component: &'a Component,
-                              parent: &'a Rc<RefCell<&'a mut Template>>)
+    pub fn call_component(component: &Component,
+                              parent: &Rc<RefCell<Template>>)
                               -> String {
         Codegen::call_component(component, None, parent)
     }
 
-    pub fn call_component_with_args<'a>(component: &'a Component,
-                                        parent: &'a Rc<RefCell<&'a mut Template>>,
+    pub fn call_component_with_args(component: &Component,
+                                        parent: &Rc<RefCell<Template>>,
                                         map: BTreeMap<String, Value>)
                                         -> String {
         Codegen::call_component(component, Some(map), parent)
     }
 
-    pub fn get_component(&self, name: String) -> Option<&Component> {
-        self.components.get(&*name)
+    pub fn get_component(&self, name: &str) -> Option<&Component> {
+        self.components.get(name)
     }
-    pub fn get_function(&self, name: String) -> Option<&PolyFn> {
-        self.functions.get(&*name)
+    pub fn get_function(&self, name: &str) -> Option<&PolyFn> {
+        self.functions.get(name)
     }
 
     pub fn load<P: AsRef<Path>>(file_path: P) -> Self {
@@ -140,7 +139,7 @@ impl Template {
         }
     }
 
-    pub fn render(&mut self) -> String {
+    pub fn render(mut self) -> String {
         let output = {
             let output = {
                 let lexer = Lexer::lex(&self.source);
@@ -150,9 +149,12 @@ impl Template {
             self.add_components(parser.get_components());
             parser.output()
         };
-        let reference = Rc::new(RefCell::new(self));
-        let file_name = reference.borrow().file.file_name().unwrap().to_str().unwrap().to_owned();
-        let mut codegen = Codegen::new(output, file_name, self.source, self.variables, &reference);
+        
+        let source = self.source.to_owned();
+        let variables = self.variables.to_owned();
+        let file_name = self.file.file_name().unwrap().to_str().unwrap().to_owned();
+        
+        let mut codegen = Codegen::new(output, file_name, source, variables, Rc::new(RefCell::new(self)));
         codegen.to_html()
     }
 }
@@ -177,8 +179,9 @@ mod tests {
     fn component() {
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
         json.insert("world".to_owned(), String("World".to_owned()));
-        assert_eq!(Template::load("./tests/component.polly").json(json).render(),
-                   BASIC);
+        let result = Template::load("./tests/component.poly").json(json).render();
+        println!("{}", &result);
+        assert_eq!(result, BASIC);
     }
 
     #[test]
