@@ -1,10 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::process;
+use std::cell::RefCell;
+
+use std::rc::Rc;
 
 use serde_json::Value;
 use super::*;
-use template::{PolyFn};
+use template::{PolyFn, Template};
 
 macro_rules! exit {
     () => {{
@@ -16,36 +19,40 @@ macro_rules! exit {
     }}
 }
 
-#[derive(Default)]
-pub struct Codegen {
+pub struct Codegen<'a> {
     elements: Vec<AstResult>,
     source: String,
     file: String,
     variables: BTreeMap<String, Value>,
-    functions: HashMap<String, PolyFn>,
-    components: HashMap<String, Component>,
+    parent: &'a Rc<RefCell<&'a mut Template>>,
 }
 
-impl Codegen {
-    pub fn new(ast: Vec<AstResult>, file: String, source: String, json: BTreeMap<String, Value>, components: HashMap<String, Component>, functions: HashMap<String, PolyFn>) -> Self {
+impl<'a> Codegen<'a> {
+    pub fn new(ast: Vec<AstResult>,
+               file: String,
+               source: String,
+               json: BTreeMap<String, Value>,
+               parent: &'a Rc<RefCell<&'a mut Template>>)
+               -> Self {
         Codegen {
             elements: ast,
             file: file,
             source: source,
             variables: json,
-            components: components,
-            functions: functions,
+            parent: parent,
         }
     }
 
-    pub fn render_component(ast: Vec<AstResult>, json: BTreeMap<String, Value>, functions: HashMap<String, PolyFn>, components: HashMap<String, Component>) -> Self{
+    pub fn render_component(ast: Vec<AstResult>,
+                            json: BTreeMap<String, Value>,
+                            parent: &'a Rc<RefCell<&'a mut Template>>)
+                            -> Self {
         Codegen {
             elements: ast,
             variables: json,
             file: String::new(),
             source: String::new(),
-            functions: functions,
-            components: components,
+            parent: parent,
         }
     }
 
@@ -62,8 +69,9 @@ impl Codegen {
         html
     }
 
-    pub fn call_component(component: &Component,
-                          arg_map: Option<BTreeMap<String, Value>>)
+    pub fn call_component(component: &'a Component,
+                          arg_map: Option<BTreeMap<String, Value>>,
+                          parent: &'a Rc<RefCell<&'a mut Template>>)
                           -> String {
         let mut codegen = if let Some(arg_map) = arg_map {
             Codegen {
@@ -71,16 +79,21 @@ impl Codegen {
                 variables: arg_map,
                 file: String::new(),
                 source: String::new(),
-                functions: HashMap::new(),
-                components: HashMap::new(),
+                parent: parent,
             }
         } else {
-            Codegen { elements: component.ast(), ..Codegen::default() }
+            Codegen {
+                elements: component.ast(),
+                variables: BTreeMap::new(),
+                file: String::new(),
+                source: String::new(),
+                parent: parent,
+            }
         };
         codegen.to_html()
     }
     fn from_component(&self, component_call: ComponentCall) -> String {
-        if let Some(component) = self.components.get(&*component_call.name()) {
+        if let Some(component) = self.get_component(component_call.name()) {
             let args = component.args();
             let arg_values = component_call.values();
             let mut arg_map = BTreeMap::new();
@@ -107,7 +120,7 @@ impl Codegen {
                         }
                     }
                 }
-                Codegen::render_component(component.ast(), arg_map, self.functions, self.components).to_html()
+                Codegen::render_component(component.ast(), arg_map, self.parent).to_html()
             } else {
                 println!("Incorrect number of arguments passed");
                 exit!()
@@ -117,6 +130,13 @@ impl Codegen {
                      component_call.name());
             exit!()
         }
+    }
+
+    fn get_component(&self, name: String) -> Option<&Component> {
+        self.parent.borrow().get_component(name)
+    }
+    fn get_function(&self, name: String) -> Option<&PolyFn> {
+        self.parent.borrow().get_function(name)
     }
 
     fn render(&self, token: &AstResult) -> Option<String> {
@@ -211,7 +231,7 @@ impl Codegen {
                             arguments.insert(key, ArgValue::Json(real_value));
                         }
                         ArgKey::Comp(id) => {
-                            let real_value = self.components.get(&*id);
+                            let real_value = self.get_component(id);
                             let real_value = match real_value {
                                 Some(value) => Some(value.clone()),
                                 None => None,
@@ -221,8 +241,8 @@ impl Codegen {
                     }
                 }
 
-                if let Some(fun) = self.functions.get(&*function.identifier()) {
-                    match fun(arguments) {
+                if let Some(fun) = self.get_function(function.identifier()) {
+                    match fun(arguments, self.parent) {
                         Ok(string) => Some(string),
                         Err(error) => {
                             println!("{}", error);
