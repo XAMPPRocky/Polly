@@ -91,7 +91,7 @@ impl Codegen {
         };
         codegen.to_html()
     }
-    
+
     fn from_component(&self, component_call: ComponentCall) -> String {
         let parent = self.parent.borrow();
         if let Some(component) = parent.get_component(component_call.name()) {
@@ -132,13 +132,6 @@ impl Codegen {
             exit!()
         }
     }
-
-    /*fn get_component(&self, name: &str) -> Option<&Component> {
-        self.parent.borrow().get_component(name)
-    }
-    fn get_function(&self, name: &str) -> Option<&PolyFn> {
-        self.parent.borrow().get_function(name)
-    }*/
 
     fn render(&self, token: &AstResult) -> Option<String> {
         use super::Token::*;
@@ -214,10 +207,8 @@ impl Codegen {
                     None => Some(String::new()),
                 }
             }
-            &Ok(Comp(_)) => unreachable!(),
             &Ok(CompCall(ref component_call)) => Some(self.from_component(component_call.clone())),
             &Ok(Function(ref function)) => {
-                println!("{:#?}", function);
                 let mut arguments: BTreeMap<String, ArgValue> = BTreeMap::new();
 
                 for (key, value) in function.args().clone() {

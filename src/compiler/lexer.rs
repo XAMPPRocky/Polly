@@ -56,7 +56,7 @@ impl<'a> Lexer<'a> {
         let mut leading_space = false;
         loop {
             if let Some(&(_, character)) = self.peek() {
-                if character.is_whitespace() || character == '\r' {
+                if character.is_whitespace() || character == CARRAGE_RETURN {
                     let _ = self.take();
                     leading_space = true;
                 } else {
@@ -103,6 +103,7 @@ impl<'a> Lexer<'a> {
                             }
                             ch => {
                                 if !ch.is_whitespace() {
+
                                     word.push(self.take().unwrap().1);
                                 } else {
                                     break;
@@ -115,7 +116,9 @@ impl<'a> Lexer<'a> {
                 }
 
                 if let Some(&(_, ch)) = self.peek() {
-                    if ch.is_whitespace() {
+                    if ch == '\r' {
+                        let _ = self.take();
+                    } else if ch.is_whitespace() {
                         word.push(ch);
                         let _ = self.take();
                     }

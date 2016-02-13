@@ -27,6 +27,28 @@ macro_rules! get_identifer {
         };
     }
 }
+macro_rules! get_namespaced_identifer {
+    ($this:expr, $index:expr, $unexpected:expr, $previous:expr) => {
+        match $this.take() {
+            Some(Word(index, text)) => {
+                let mut new_text = text.clone();
+                while let Some(Symbol(_, Dot)) = $this.peek() {
+                    let _ = $this.take();
+                    new_text.push('.');
+
+                    match $this.take() {
+                        Some(Word(_, member)) => new_text.push_str(&*member),
+                        Some(unexpected_token) => return Err($unexpected(unexpected_token)),
+                        None => return Err(UnexpectedEof(Symbol(index, Dot))),
+                    }
+                }
+                new_text
+            }
+            Some(unexpected_token) => return Err($unexpected(unexpected_token)),
+            None => return Err(UnexpectedEof(Symbol($index, $previous))),
+        } 
+    }
+}
 
 
 macro_rules! get_children {
@@ -62,7 +84,7 @@ macro_rules! get_children {
         if depth > 0 {
             return Err(UnclosedOpenBraces(open_brace_index));
         } else if depth != 0 {
-            return Err(UnclosedOpenBraces(close_brace_index));
+            return Err(UnclosedCloseBraces(close_brace_index));
         }
         if !children.is_empty() {
             $parent.add_children(&mut Parser::new(children).output());
@@ -74,13 +96,17 @@ macro_rules! get_children {
 pub struct Parser {
     input: Peekable<IntoIter<Lexeme>>,
     output: Vec<AstResult>,
-    components: HashMap<String, Component>
+    components: HashMap<String, Component>,
 }
 
 impl Parser {
     /// Generates Parser from Lexer
     pub fn new(lexemes: Vec<Lexeme>) -> Self {
-        let mut parser = Parser { input: lexemes.into_iter().peekable(), output: Vec::new(), components: HashMap::new(),}; 
+        let mut parser = Parser {
+            input: lexemes.into_iter().peekable(),
+            output: Vec::new(),
+            components: HashMap::new(),
+        };
         loop {
             match parser.parse_token() {
                 Err(Eof) => break,
@@ -128,7 +154,7 @@ impl Parser {
     }
 
     fn parse_component(&mut self, allow_definition: bool, index: usize) -> AstResult {
-        let name = get_identifer!(self.take(), index, InvalidComponent);
+        let name = get_namespaced_identifer!(self, index, InvalidComponent, Ampersand);
         let mut component = Component::new(name);
 
         while let Some(token) = self.peek() {
@@ -186,7 +212,10 @@ impl Parser {
         'element: while let Some(token) = self.take() {
             match token {
                 Symbol(index, Ampersand) => {
-                    let identifier = get_identifer!(self.take(), index, ExpectedCompCall);
+                    let identifier = get_namespaced_identifer!(self,
+                                                               index,
+                                                               ExpectedCompCall,
+                                                               Ampersand);
                     let mut component_call = ComponentCall::new(identifier);
 
                     if let Some(Symbol(_, OpenParam)) = self.peek() {
@@ -231,7 +260,7 @@ impl Parser {
                                                 return Err(InvalidTokenInAttributes(unexpected_token));
                                             }
                                             None => {
-                                                return Err(UnexpectedEof(Symbol(index, Equals)));
+                                                return unexpected_eof!(Symbol(index, Equals));
                                             }
                                         }
                                     }
@@ -241,7 +270,7 @@ impl Parser {
                                     Some(invalid_token) => {
                                         return Err(InvalidTokenInAttributes(invalid_token))
                                     }
-                                    None => return Err(UnexpectedEof(Word(index, key))),
+                                    None => return unexpected_eof!(Word(index, key)),
                                 };
 
                                 element.add_attribute(key, value);
@@ -278,28 +307,6 @@ impl Parser {
         Ok(Html(element))
     }
 
-    fn parse_variable(&mut self, index: usize) -> AstResult {
-        // If we find a variable, we expect a word after it.
-        match self.take() {
-            Some(Word(index, text)) => {
-                let mut new_text = text.clone();
-                while let Some(Symbol(_, Dot)) = self.peek() {
-                    let _ = self.take();
-                    new_text.push('.');
-
-                    match self.take() {
-                        Some(Word(_, member)) => new_text.push_str(&*member),
-                        Some(unexpected_token) => return Err(ExpectedVariable(unexpected_token)),
-                        None => return Err(UnexpectedEof(Symbol(index, Dot))),
-                    }
-                }
-                Ok(Variable(new_text))
-            }
-            Some(unexpected_token) => Err(ExpectedVariable(unexpected_token)),
-            None => Err(UnexpectedEof(Symbol(index, At))),
-        }
-    }
-
     fn parse_token(&mut self) -> AstResult {
 
         match self.take() {
@@ -318,7 +325,9 @@ impl Parser {
                     }
                 }
             }
-            Some(Symbol(index, At)) => self.parse_variable(index),
+            Some(Symbol(index, At)) => {
+                Ok(Variable(get_namespaced_identifer!(self, index, ExpectedVariable, At)))
+            }
             Some(Symbol(index, ForwardSlash)) => self.parse_element(index),
             Some(Symbol(_, BackSlash)) => {
                 match self.peek() {
@@ -332,7 +341,10 @@ impl Parser {
             }
             Some(Symbol(index, Ampersand)) => self.parse_component(true, index),
             Some(Symbol(index, Dollar)) => {
-                let identifier = get_identifer!(self.take(), index, InvalidFunctionCall);
+                let identifier = get_namespaced_identifer!(self,
+                                                           index,
+                                                           InvalidFunctionCall,
+                                                           Dollar);
                 let mut func_call = FunctionCall::new(identifier);
 
                 match self.take() {
@@ -360,12 +372,17 @@ impl Parser {
                                                                                         identifier);
                                                         }
                                                         Some(unexpected_token) => return Err(ExpectedCompCall(unexpected_token)),
-                                                        None => unexpected_eof!(Symbol(index, Ampersand)),
+                                                        None => {
+                                                            unexpected_eof!(Symbol(index,
+                                                                                   Ampersand))
+                                                        }
                                                     }
                                                 }
-                                                Some(unexpected_token) => return Err(UnexpectedToken(unexpected_token)),
+                                                Some(unexpected_token) => {
+                                                    return Err(UnexpectedToken(unexpected_token))
+                                                }
                                                 None => unexpected_eof!(Symbol(index, Equals)),
-                                                
+
                                             }
                                         }
                                         Some(unexpected_token) => {
@@ -376,13 +393,13 @@ impl Parser {
                                     }
                                 }
                                 Symbol(_, CloseParam) => break,
-                                Symbol(_, Comma) => {},
+                                Symbol(_, Comma) => {}
                                 unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                             }
                         }
                     }
                     Some(unexpected_token) => return Err(InvalidFunctionCall(unexpected_token)),
-                    None => return Err(UnexpectedEof(Symbol(index, Dollar))),
+                    None => unexpected_eof!(Symbol(index, Dollar)),
                 }
                 Ok(Function(func_call))
             }

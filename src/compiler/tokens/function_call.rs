@@ -17,11 +17,11 @@ impl FunctionCall {
     pub fn identifier(&self) -> &str {
         &self.identifier
     }
-    
+
     pub fn args(&self) -> &BTreeMap<String, ArgKey> {
         &self.arguments
     }
-    
+
     pub fn add_value_arg<SK: AsRef<str>, SV: Into<String>>(&mut self, key: SK, value: SV) {
         self.arguments.insert(key.as_ref().trim().into(), ArgKey::Json(value.into()));
     }

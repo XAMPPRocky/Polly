@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error;
 
-use super::{Component, ComponentCall, Element, FunctionCall, Lexeme};
+use super::{ComponentCall, Element, FunctionCall, Lexeme};
 use self::AstError::*;
 
 /// TODO
@@ -14,8 +14,6 @@ pub enum Token {
     Text(String),
     /// TODO
     Variable(String),
-    /// TODO
-    Comp(Component),
     /// TODO
     CompCall(ComponentCall),
     /// TODO
@@ -37,10 +35,6 @@ pub enum AstError {
     InvalidElement(Lexeme),
     /// No name attached to function.
     InvalidFunctionCall(Lexeme),
-    /// Token that isn't ", ', or a word. 
-    InvalidTokenAfterEqualsAttributes(Lexeme),
-    /// Token that isn't ), =, or a word. 
-    InvalidTokenAfterWordInAttributes(Lexeme),
     /// Token that isn't (, ), =, ", ', or a word. 
     InvalidTokenInAttributes(Lexeme),
     /// Having a . without anything following it up.
@@ -51,8 +45,6 @@ pub enum AstError {
     UnclosedCloseBraces(usize),
     /// Extra { braces
     UnclosedOpenBraces(usize),
-    /// Attempted to define a component, where it wasn't valid.
-    UnexpectedCompDefine(Lexeme),
     /// File ended while we tried to parse element.
     UnexpectedEof(Lexeme),
     /// Unknown token
@@ -68,14 +60,11 @@ impl AstError {
             InvalidComponent(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidFunctionCall(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidTokenAfterEqualsAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidTokenAfterWordInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
             InvalidTokenInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
             NoNameAttachedToClass(ref lexeme) => (lexeme.index(), lexeme.length()),
             NoNameAttachedToId(ref lexeme) => (lexeme.index(), lexeme.length()),
             UnclosedCloseBraces(index) => (index, 1),
             UnclosedOpenBraces(index) => (index, 1),
-            UnexpectedCompDefine(ref lexeme) => (lexeme.index(), lexeme.length()),
             UnexpectedEof(ref lexeme) => (lexeme.index(), lexeme.length()),
             UnexpectedToken(ref lexeme) => (lexeme.index(), lexeme.length()),
         }
@@ -91,8 +80,6 @@ impl error::Error for AstError {
             InvalidComponent(_) => "Element names can only be words.",
             InvalidElement(_) => "Element names can only be words.",
             InvalidFunctionCall(_) => "Function names can only be words.",
-            InvalidTokenAfterEqualsAttributes(_) => "Expected quotes after equals.",
-            InvalidTokenAfterWordInAttributes(_) => "Unexpected token after a key word.",
             InvalidTokenInAttributes(_) => {
                 "Attributes fields only accept words as single value, or as key-value word pairs, \
                  or a \") which ends the attributes.\""
@@ -101,7 +88,6 @@ impl error::Error for AstError {
             NoNameAttachedToId(_) => "Id names can only be words.",
             UnclosedCloseBraces(_) => "You have an extra closing brace.",
             UnclosedOpenBraces(_) => "You have an extra open brace.",
-            UnexpectedCompDefine(_) => "Attempted to define a component, where it wasn't valid",
             UnexpectedEof(_) => "File ended before an element is finished being parsed",
             UnexpectedToken(_) => "Unknown token in use.",
         }
@@ -119,14 +105,11 @@ impl Display for AstError {
             InvalidComponent(ref lexeme) => lexeme,
             InvalidElement(ref lexeme) => lexeme,
             InvalidFunctionCall(ref lexeme) => lexeme,
-            InvalidTokenAfterEqualsAttributes(ref lexeme) => lexeme,
-            InvalidTokenAfterWordInAttributes(ref lexeme) => lexeme,
             InvalidTokenInAttributes(ref lexeme) => lexeme,
             NoNameAttachedToClass(ref lexeme) => lexeme,
             NoNameAttachedToId(ref lexeme) => lexeme,
             UnclosedCloseBraces(_) => return write!(f, "{}", self.description()),
             UnclosedOpenBraces(_) => return write!(f, "{}", self.description()),
-            UnexpectedCompDefine(ref lexeme) => lexeme,
             UnexpectedEof(ref lexeme) => lexeme,
             UnexpectedToken(ref lexeme) => lexeme,
         };

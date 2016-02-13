@@ -27,8 +27,6 @@ pub enum Operator {
     /// TODO
     ForwardSlash,
     /// TODO
-    Newline,
-    /// TODO
     OpenBrace,
     /// TODO
     OpenParam,
@@ -54,7 +52,6 @@ impl Display for Operator {
             Dot => DOT.to_string(),
             Equals => EQUALS.to_string(),
             ForwardSlash => FORWARDSLASH.to_string(),
-            Newline => NEWLINE.to_string(),
             OpenBrace => OPENBRACE.to_string(),
             OpenParam => OPENPARAM.to_string(),
             Pound => POUND.to_string(),

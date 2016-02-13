@@ -13,3 +13,7 @@ args:
       long: file
       takes_value: true
       help: Will compile to the destination.
+  - lang:
+      short: l
+      long: language
+      takes_value: true

@@ -22,8 +22,6 @@ pub const DOUBLEQUOTE: char = '"';
 pub const EQUALS: char = '=';
 /// The / character used to define elements
 pub const FORWARDSLASH: char = '/';
-/// The \n or LINE FEED character, for defining newlines
-pub const NEWLINE: char = '\n';
 /// The { character used to signify the start of an elements children.
 pub const OPENBRACE: char = '{';
 /// The ( character used to signify the start of the attributes for an element, or start of a 
@@ -31,7 +29,5 @@ pub const OPENBRACE: char = '{';
 pub const OPENPARAM: char = '(';
 /// The # character used to define CSS ids for an element.
 pub const POUND: char = '#';
-/// The ' character used as an alternative to double quotes.
-pub const SINGLEQUOTE: char = '\'';
 /// The * character used for multi line comments.
 pub const STAR: char = '*';

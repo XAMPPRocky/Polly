@@ -1,14 +1,14 @@
 [package]
-name = "poly"
+name = "polly"
 version = "0.1.0"
 authors = ["Aaronepower <theaaronepower@gmail.com>"]
 
 [lib]
-name = "poly"
+name = "polly"
 path = "src/lib.rs"
 
 [[bin]]
-name = "poly"
+name = "polly"
 path = "src/main.rs"
 
 [dependencies]
