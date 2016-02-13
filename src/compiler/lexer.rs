@@ -11,13 +11,6 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Lexer {
-            input: input.char_indices().peekable(),
-            output: Vec::new(),
-        }
-    }
-
     fn take(&mut self) -> Option<(usize, char)> {
         self.input.next()
     }
@@ -29,21 +22,18 @@ impl<'a> Lexer<'a> {
     fn push(&mut self, token: Lexeme) {
         self.output.push(token);
     }
-    /// Returns the output of the lexer
-    pub fn output(&self) -> Vec<Lexeme> {
-        let mut new_vec = Vec::new();
-        // Need to figure out a way to not clone the vector
-        for lexeme in self.output.to_vec() {
-            if lexeme != Empty {
-                new_vec.push(lexeme);
-            }
-        }
-        new_vec
+    /// Retrieves the output of the lexer. This will consume the lexer, as the lexer is no longer 
+    /// needed after we get the output.
+    pub fn output(self) -> Vec<Lexeme> {
+        self.output
     }
 
     /// TODO
-    pub fn lex(input: &'a str) -> Self {
-        let mut lexer = Lexer::new(input);
+    pub fn new(input: &'a str) -> Self {
+        let mut lexer = Lexer {
+            input: input.char_indices().peekable(),
+            output: Vec::new(),
+        };
 
         while let Some(token) = lexer.take_token() {
             lexer.push(token);
@@ -131,99 +121,99 @@ mod tests {
 
     #[test]
     fn ignore_spaces() {
-        let lexer = Lexer::lex(" \t   ");
+        let lexer = Lexer::new(" \t   ");
 
         assert_eq!(lexer.output(), vec![]);
     }
 
     #[test]
     fn ampersand_operator() {
-        let lexer = Lexer::lex("&");
+        let lexer = Lexer::new("&");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Ampersand)]);
     }
 
     #[test]
     fn at_operator() {
-        let lexer = Lexer::lex("@");
+        let lexer = Lexer::new("@");
 
         assert_eq!(lexer.output(), vec![Symbol(0, At)]);
     }
     #[test]
     fn back_slash_operator() {
-        let lexer = Lexer::lex("\\");
+        let lexer = Lexer::new("\\");
 
         assert_eq!(lexer.output(), vec![Symbol(0, BackSlash)]);
     }
     #[test]
     fn close_brace_operator() {
-        let lexer = Lexer::lex("}");
+        let lexer = Lexer::new("}");
 
         assert_eq!(lexer.output(), vec![Symbol(0, CloseBrace)]);
     }
     #[test]
     fn close_param_operator() {
-        let lexer = Lexer::lex(")");
+        let lexer = Lexer::new(")");
 
         assert_eq!(lexer.output(), vec![Symbol(0, CloseParam)]);
     }
     #[test]
     fn dollar_operator() {
-        let lexer = Lexer::lex("$");
+        let lexer = Lexer::new("$");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Dollar)]);
     }
     #[test]
     fn dot_operator() {
-        let lexer = Lexer::lex(".");
+        let lexer = Lexer::new(".");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Dot)]);
     }
     #[test]
     fn equals_operator() {
-        let lexer = Lexer::lex("=");
+        let lexer = Lexer::new("=");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Equals)]);
     }
     #[test]
     fn forward_slash_operator() {
-        let lexer = Lexer::lex("/");
+        let lexer = Lexer::new("/");
 
         assert_eq!(lexer.output(), vec![Symbol(0, ForwardSlash)]);
     }
     #[test]
     fn open_brace_operator() {
-        let lexer = Lexer::lex("{");
+        let lexer = Lexer::new("{");
 
         assert_eq!(lexer.output(), vec![Symbol(0, OpenBrace)]);
     }
     #[test]
     fn open_param_operator() {
-        let lexer = Lexer::lex("(");
+        let lexer = Lexer::new("(");
 
         assert_eq!(lexer.output(), vec![Symbol(0, OpenParam)]);
     }
     #[test]
     fn pound_operator() {
-        let lexer = Lexer::lex("#");
+        let lexer = Lexer::new("#");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Pound)]);
     }
     #[test]
     fn quote_operator() {
-        let lexer = Lexer::lex("\"");
+        let lexer = Lexer::new("\"");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Quote)]);
     }
     #[test]
     fn star_operator() {
-        let lexer = Lexer::lex("*");
+        let lexer = Lexer::new("*");
 
         assert_eq!(lexer.output(), vec![Symbol(0, Star)]);
     }
     #[test]
     fn all_operators() {
-        let lexer = Lexer::lex("&@\\})$.=/{(#\"*,");
+        let lexer = Lexer::new("&@\\})$.=/{(#\"*,");
         let expected = vec![Symbol(0, Ampersand),
                             Symbol(1, At),
                             Symbol(2, BackSlash),
@@ -246,13 +236,13 @@ mod tests {
     }
     #[test]
     fn word() {
-        let lexer = Lexer::lex("Hello");
+        let lexer = Lexer::new("Hello");
 
         assert_eq!(lexer.output(), vec![Word(0, "Hello".to_owned())]);
     }
     #[test]
     fn words() {
-        let lexer = Lexer::lex("The Lord Of The Rings");
+        let lexer = Lexer::new("The Lord Of The Rings");
 
         assert_eq!(lexer.output(),
                    vec![Word(0, "The ".to_owned()),
@@ -263,7 +253,7 @@ mod tests {
     }
     #[test]
     fn words_and_operators() {
-        let lexer = Lexer::lex("@{Hello}.");
+        let lexer = Lexer::new("@{Hello}.");
 
         assert_eq!(lexer.output(),
                    vec![Symbol(0, At),
@@ -274,7 +264,7 @@ mod tests {
     }
     #[test]
     fn hello_world() {
-        let lexer = Lexer::lex("/html{ /body { /p{Hello /u{World}!}}}");
+        let lexer = Lexer::new("/html{ /body { /p{Hello /u{World}!}}}");
         let expected_tokens = vec![Symbol(0, ForwardSlash),
                                    Word(1, "html".to_owned()),
                                    Symbol(5, OpenBrace),

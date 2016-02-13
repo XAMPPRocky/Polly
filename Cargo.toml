@@ -8,7 +8,7 @@ name = "polly"
 path = "src/lib.rs"
 
 [[bin]]
-name = "polly"
+name = "pollybin"
 path = "src/main.rs"
 
 [dependencies]

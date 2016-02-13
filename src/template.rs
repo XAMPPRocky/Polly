@@ -1,16 +1,14 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, BTreeMap};
-use std::io::prelude::*;
 use std::fs::File;
-use std::rc::Rc;
+use std::io;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use serde_json::Value;
 
-use compiler::tokens::{Component, ArgValue};
-use compiler::codegen::Codegen;
-use compiler::parser::Parser;
-use compiler::lexer::Lexer;
+use compiler::{ArgValue, Codegen, Component, Lexer, Parser};
 
 /// A type abstracting the functions used for Polly.
 pub type PolyFn = Box<Fn(BTreeMap<String, ArgValue>, &Rc<RefCell<Template>>)
@@ -148,13 +146,13 @@ fn std_functions() -> HashMap<String, PolyFn> {
     map
 }
 
-/// A struct representing a template.
+/// The Polly template.
 pub struct Template {
     components: HashMap<String, Component>,
     file: PathBuf,
     functions: HashMap<String, PolyFn>,
     source: String,
-    locales_dir: String,
+    locales_dir: Option<String>,
     variables: BTreeMap<String, Value>,
 }
 
@@ -185,29 +183,47 @@ impl Template {
         Codegen::call_component(component, Some(map), parent)
     }
 
+    /// Get a component from within the template.
     pub fn get_component(&self, name: &str) -> Option<&Component> {
         self.components.get(name)
     }
+
+    /// Get a function from within the template.
     pub fn get_function(&self, name: &str) -> Option<&PolyFn> {
         self.functions.get(name)
     }
-    /// loads the template from the file path.
-    pub fn load<P: AsRef<Path>>(file_path: P) -> Self {
-        let mut file = File::open(file_path.as_ref()).unwrap();
-        let source = {
-            let mut contents = String::new();
-            file.read_to_string(&mut contents).unwrap();
-            contents
+
+    /// Loads the template from the file path.
+    pub fn load<P: AsRef<Path>>(file_path: P) -> Result<Self, TemplateError> {
+        let source = match Template::read_to_source(file_path.as_ref()) {
+            Ok(source) => source,
+            Err(error) => return Err(error),
         };
 
+        Ok(Template::new(file_path, source))
+    }
+
+    fn new<P: AsRef<Path>, S: Into<String>>(path: P, source: S) -> Self {
         Template {
             components: HashMap::new(),
-            file: file_path.as_ref().to_path_buf(),
+            file: path.as_ref().to_path_buf(),
             functions: std_functions(),
-            source: source,
-            locales_dir: String::from("./templates/locales"),
+            source: source.into(),
+            locales_dir: Some(String::from("./templates/locales")),
             variables: BTreeMap::new(),
         }
+    }
+
+    /// Specify that a template has no locales available.
+    pub fn no_locales(mut self) -> Self {
+        self.locales_dir = None;
+        self
+    }
+
+    /// Loads the template from the source provided. The file path is also required, for error 
+    /// handling
+    pub fn load_from_source<P: AsRef<Path>, S: Into<String>>(path: P, source: S) -> Self {
+        Template::new(path, source)
     }
 
     /// Pass in a `serde_json` Object, for the JSON of the template.
@@ -218,47 +234,68 @@ impl Template {
 
     /// Override the default locales directory.
     pub fn locales_dir<S: Into<String>>(mut self, locales_dir: S) -> Self {
-        self.locales_dir = locales_dir.into();
+        self.locales_dir = Some(locales_dir.into());
         self
     }
 
-    pub fn register(&mut self, name: String, function: PolyFn) {
+    /// Registers a function to the template.
+    pub fn register(&mut self, name: String, function: PolyFn) -> Result<(), TemplateError> {
         if let Some(_) = self.functions.insert(name, function) {
-            panic!("Function already exists!");
+            Err(TemplateError::PreDefinedFunction)
+        } else {
+            Ok(())
         }
     }
 
-    pub fn render(mut self, lang: &str) -> String {
+    pub fn import<P: AsRef<Path>>(&mut self, path: P) -> Result<(), TemplateError> {
+        match Template::read_to_source(path) {
+            Ok(source) => {
+                for (key, value) in Parser::component_pass(Lexer::new(&*source).output()) {
+                    self.add_component(key, value);
+                }
+                Ok(())
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
+    fn read_to_source<P: AsRef<Path>>(path: P) -> Result<String, TemplateError> {
+        println!("{:?}", path.as_ref());
+        let mut file = File::open(path.as_ref()).unwrap();
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Ok(_) => Ok(contents),
+            Err(error) => Err(TemplateError::IoError(error)),
+        }
+    }
+
+    /// Renders the template into a HTML String.
+    pub fn render(mut self, lang: &str) -> Result<String, TemplateError> {
         let output = {
-            let output = {
-                let lexer = Lexer::lex(&self.source);
-                lexer.output()
-            };
-            let parser = Parser::new(output);
+            let parser = Parser::new(Lexer::new(&self.source).output());
             self.add_components(parser.get_components());
             parser.output()
         };
-
         let file_name = self.file.file_name().unwrap().to_str().unwrap().to_owned();
 
-        let path = format!("{dir}/{lang}/{file}",
-                           dir = self.locales_dir,
-                           lang = lang,
-                           file = file_name);
-        if let Ok(mut file) = File::open(path) {
-            let contents = {
-                let mut contents = String::new();
-                file.read_to_string(&mut contents).unwrap();
-                contents
-            };
-            let output = {
-                let lexer = Lexer::lex(&*contents);
-                lexer.output()
-            };
-            let parser = Parser::new(output);
-            for (key, value) in parser.get_components() {
-                let new_key = format!("locales.{}", key);
-                self.add_component(new_key, value);
+        let locales_dir = match self.locales_dir {
+            Some(ref locales_dir) => locales_dir.clone(),
+            None => String::new(),
+        };
+
+        if !locales_dir.is_empty() {
+            let path = format!("{dir}/{lang}/{file}",
+                               dir = locales_dir,
+                               lang = lang,
+                               file = file_name);
+            match Template::read_to_source(path) {
+                Ok(source) => {
+                    for (key, value) in Parser::component_pass(Lexer::new(&*source).output()) {
+                        let new_key = format!("locales.{}", key);
+                        self.add_component(new_key, value);
+                    }
+                }
+                error => return error,
             }
         }
 
@@ -270,8 +307,16 @@ impl Template {
                                        source,
                                        variables,
                                        Rc::new(RefCell::new(self)));
-        codegen.generate_html()
+        Ok(codegen.generate_html())
     }
+}
+/// Errors relating to the templating rendering.
+#[derive(Debug)]
+pub enum TemplateError {
+    /// The function called already exists.
+    PreDefinedFunction,
+    /// Any IO errors, from the methods.
+    IoError(io::Error),
 }
 
 #[allow(dead_code, unused_imports)]
@@ -286,15 +331,31 @@ mod tests {
     const BASIC_DE: &'static str = "<!DOCTYPE html><html><body><p>Hallo Welt!</p></body></html>";
     #[test]
     fn element() {
-        assert_eq!(Template::load("./tests/element.polly").render("en"), BASIC);
+        assert_eq!(Template::load("./tests/element.polly")
+                       .unwrap()
+                       .no_locales()
+                       .render("en")
+                       .unwrap(),
+                   BASIC);
     }
 
     #[test]
     fn component() {
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
         json.insert("world".to_owned(), Value::String("World".to_owned()));
-        let result = Template::load("./tests/component.polly").json(json).render("en");
-        assert_eq!(result, BASIC);
+        let result = Template::load("./tests/component.polly")
+                         .unwrap()
+                         .no_locales()
+                         .json(json)
+                         .render("en");
+        assert_eq!(result.unwrap(), BASIC);
+    }
+
+    #[test]
+    fn component_imported() {
+        let mut template = Template::load("./tests/component_import.polly").unwrap().no_locales();
+        template.import("./tests/imported.polly").unwrap();
+        assert_eq!(template.render("en").unwrap(), BASIC);
     }
 
 
@@ -302,8 +363,12 @@ mod tests {
     fn variable() {
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
         json.insert("world".to_owned(), Value::String("World".to_owned()));
-        let result = Template::load("./tests/variable.polly").json(json).render("en");
-        assert_eq!(result, BASIC);
+        let result = Template::load("./tests/variable.polly")
+                         .unwrap()
+                         .no_locales()
+                         .json(json)
+                         .render("en");
+        assert_eq!(result.unwrap(), BASIC);
     }
 
     #[test]
@@ -316,7 +381,12 @@ mod tests {
                     Value::Array(vec![Value::String("Rust".to_owned()),
                                       Value::String("C++".to_owned()),
                                       Value::String("JavaScript".to_owned())]));
-        assert_eq!(Template::load("./tests/function_each.polly").json(json).render("en"),
+        assert_eq!(Template::load("./tests/function_each.polly")
+                       .unwrap()
+                       .no_locales()
+                       .json(json)
+                       .render("en")
+                       .unwrap(),
                    expected);
 
     }
@@ -327,7 +397,12 @@ mod tests {
         json.insert(String::from("condition"), Value::Bool(true));
         json.insert(String::from("text"),
                     Value::String(String::from("Hello World!")));
-        assert_eq!(Template::load("./tests/function_if.polly").json(json).render("en"),
+        assert_eq!(Template::load("./tests/function_if.polly")
+                       .unwrap()
+                       .no_locales()
+                       .json(json)
+                       .render("en")
+                       .unwrap(),
                    BASIC);
 
     }
@@ -336,11 +411,18 @@ mod tests {
     fn locales() {
         let json: BTreeMap<String, Value> = BTreeMap::new();
 
-        assert_eq!(Template::load("./tests/locales.polly").json(json.to_owned()).render("en"),
+        assert_eq!(Template::load("./tests/locales.polly")
+                       .unwrap()
+                       .json(json.to_owned())
+                       .render("en")
+                       .unwrap(),
                    BASIC);
-        assert_eq!(Template::load("./tests/locales.polly").json(json).render("de"),
+        assert_eq!(Template::load("./tests/locales.polly")
+                       .unwrap()
+                       .json(json)
+                       .render("de")
+                       .unwrap(),
                    BASIC_DE);
-
     }
 
 }

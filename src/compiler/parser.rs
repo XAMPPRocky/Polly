@@ -7,7 +7,6 @@ use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
-
 /// Shortens Result<T, AstError> to Result<T>.
 pub type AstResult = Result<Token, AstError>;
 
@@ -16,6 +15,7 @@ macro_rules! unexpected_eof {
         return Err(UnexpectedEof($token));
     }
 }
+
 macro_rules! get_identifer {
     ($token:expr, $index:expr, $unexpected:expr) => {
         match $token {
@@ -27,6 +27,7 @@ macro_rules! get_identifer {
         };
     }
 }
+
 macro_rules! get_namespaced_identifer {
     ($this:expr, $index:expr, $unexpected:expr, $previous:expr) => {
         match $this.take() {
@@ -49,7 +50,6 @@ macro_rules! get_namespaced_identifer {
         } 
     }
 }
-
 
 macro_rules! get_children {
     ($token:expr, $parent:expr) => 
@@ -92,6 +92,7 @@ macro_rules! get_children {
     }}
 }
 
+
 /// The struct detailing the parser itself.
 pub struct Parser {
     input: Peekable<IntoIter<Lexeme>>,
@@ -102,11 +103,7 @@ pub struct Parser {
 impl Parser {
     /// Generates Parser from Lexer
     pub fn new(lexemes: Vec<Lexeme>) -> Self {
-        let mut parser = Parser {
-            input: lexemes.into_iter().peekable(),
-            output: Vec::new(),
-            components: HashMap::new(),
-        };
+        let mut parser = Parser::new_parser(lexemes);
         loop {
             match parser.parse_token() {
                 Err(Eof) => break,
@@ -116,14 +113,27 @@ impl Parser {
         parser
     }
 
+    fn new_parser(lexemes: Vec<Lexeme>) -> Self {
+        Parser {
+            input: lexemes.into_iter().peekable(),
+            output: Vec::new(),
+            components: HashMap::new(),
+        }
+    }
+
+    /// Pushes a new AstResult onto the output Vector
     fn push(&mut self, token: AstResult) {
         self.output.push(token);
     }
 
+    /// A wrapper function around the input. taking the next element from the iterator.
     fn take(&mut self) -> Option<Lexeme> {
         self.input.next()
     }
-
+    /// Performs a lookahead of the iterator.
+    // This function should probably be refactored to not clone a token every time it's called.
+    // Currently if you replace it with a reference, it creates a borrow, that messes up the
+    // parser's current borrow structure.
     fn peek(&mut self) -> Option<Lexeme> {
         match self.input.peek() {
             Some(token) => Some(token.clone()),
@@ -131,26 +141,28 @@ impl Parser {
         }
     }
     /// Output result vector
-    pub fn output(&self) -> Vec<AstResult> {
-        // Need to figure out a way to not clone the vector
-        self.output.to_vec()
+    pub fn output(self) -> Vec<AstResult> {
+        self.output
     }
-
+    /// Get all the components the parser found.
     pub fn get_components(&self) -> HashMap<String, Component> {
         self.components.clone()
     }
 
-    fn read_leading_quotes(&mut self) -> String {
-        let mut value = String::new();
-        while let Some(token) = self.take() {
-            match token {
-                Symbol(_, Quote) => break,
-                Word(_, text) => value.push_str(&*text),
-                Symbol(_, operator) => value.push_str(&*operator.to_string()),
-                Empty => {}
+    /// Only parse components out of the source.
+    pub fn component_pass(lexemes: Vec<Lexeme>) -> HashMap<String, Component> {
+        let mut parser = Parser::new_parser(lexemes);
+        loop {
+            match parser.take() {
+                Some(Symbol(index, Ampersand)) => {
+                    let _ = parser.parse_component(true, index);
+                }
+                None => break,
+                _ => {}
             }
         }
-        value
+
+        parser.components
     }
 
     fn parse_component(&mut self, allow_definition: bool, index: usize) -> AstResult {
@@ -307,105 +319,122 @@ impl Parser {
         Ok(Html(element))
     }
 
-    fn parse_token(&mut self) -> AstResult {
+    fn parse_escaped(&mut self) -> AstResult {
+        match self.peek() {
+            Some(Symbol(_, ref operator)) => {
+                let _ = self.take();
+                Ok(Text(operator.to_string()))
+            }
+            Some(_) => Ok(Text(String::new())),
+            None => Err(Eof),
+        }
+    }
+
+    fn parse_function(&mut self, index: usize) -> AstResult {
+        let identifier = get_namespaced_identifer!(self, index, InvalidFunctionCall, Dollar);
+        let mut func_call = FunctionCall::new(identifier);
 
         match self.take() {
-            // concatenate all the word tokens that are adjacent to each other into a single "Text"
-            // token.
-            Some(Word(_, word)) => {
-                let mut text = String::from(word);
-                loop {
-                    let peek = self.peek();
-                    match peek {
-                        Some(Word(_, ref peek_text)) => {
-                            text.push_str(&*peek_text);
-                            let _ = self.take();
+            Some(Symbol(_, OpenParam)) => {
+                while let Some(token) = self.take() {
+                    match token {
+                        Word(index, arg_name) => {
+                            match self.take() {
+                                Some(Symbol(index, Equals)) => {
+                                    match self.take() {
+                                        Some(Symbol(index, At)) => {
+                                            match self.take() {
+                                                Some(Word(_, identifier)) => {
+                                                    func_call.add_value_arg(arg_name, identifier);
+                                                }
+                                                Some(unexpected_token) => {
+                                                    return Err(ExpectedVariable(unexpected_token))
+                                                }
+                                                None => unexpected_eof!(Symbol(index, At)),
+                                            }
+                                        }
+                                        Some(Symbol(index, Ampersand)) => {
+                                            match self.take() {
+                                                Some(Word(_, identifier)) => {
+                                                    func_call.add_component_arg(arg_name,
+                                                                                identifier);
+                                                }
+                                                Some(unexpected_token) => {
+                                                    return Err(ExpectedCompCall(unexpected_token))
+                                                }
+                                                None => unexpected_eof!(Symbol(index, Ampersand)),
+                                            }
+                                        }
+                                        Some(unexpected_token) => {
+                                            return Err(UnexpectedToken(unexpected_token))
+                                        }
+                                        None => unexpected_eof!(Symbol(index, Equals)),
+
+                                    }
+                                }
+                                Some(unexpected_token) => {
+                                    return Err(InvalidFunctionCall(unexpected_token))
+                                }
+                                None => unexpected_eof!(Word(index, arg_name)),
+
+                            }
                         }
-                        _ => return Ok(Text(text)),
+                        Symbol(_, CloseParam) => break,
+                        Symbol(_, Comma) => {}
+                        unexpected_token => return Err(UnexpectedToken(unexpected_token)),
                     }
                 }
             }
+            Some(unexpected_token) => return Err(InvalidFunctionCall(unexpected_token)),
+            None => unexpected_eof!(Symbol(index, Dollar)),
+        }
+        Ok(Function(func_call))
+    }
+
+
+
+    fn parse_text(&mut self, word: String) -> AstResult {
+        let mut text = String::from(word);
+        loop {
+            let peek = self.peek();
+            match peek {
+                Some(Word(_, ref peek_text)) => {
+                    text.push_str(&*peek_text);
+                    let _ = self.take();
+                }
+                _ => return Ok(Text(text)),
+            }
+        }
+    }
+
+    /// 
+    fn parse_token(&mut self) -> AstResult {
+        match self.take() {
+            // concatenate all the word tokens that are adjacent to each other into a single "Text"
+            // token.
+            Some(Word(_, word)) => self.parse_text(word),
             Some(Symbol(index, At)) => {
                 Ok(Variable(get_namespaced_identifer!(self, index, ExpectedVariable, At)))
             }
             Some(Symbol(index, ForwardSlash)) => self.parse_element(index),
-            Some(Symbol(_, BackSlash)) => {
-                match self.peek() {
-                    Some(Symbol(_, ref operator)) => {
-                        let _ = self.take();
-                        Ok(Text(operator.to_string()))
-                    }
-                    Some(_) => Ok(Text(String::new())),
-                    None => Err(Eof),
-                }
-            }
+            Some(Symbol(_, BackSlash)) => self.parse_escaped(),
             Some(Symbol(index, Ampersand)) => self.parse_component(true, index),
-            Some(Symbol(index, Dollar)) => {
-                let identifier = get_namespaced_identifer!(self,
-                                                           index,
-                                                           InvalidFunctionCall,
-                                                           Dollar);
-                let mut func_call = FunctionCall::new(identifier);
-
-                match self.take() {
-                    Some(Symbol(_, OpenParam)) => {
-                        while let Some(token) = self.take() {
-                            match token {
-                                Word(index, arg_name) => {
-                                    match self.take() {
-                                        Some(Symbol(index, Equals)) => {
-                                            match self.take() {
-                                                Some(Symbol(index, At)) => {
-                                                    match self.take() {
-                                                        Some(Word(_, identifier)) => {
-                                                            func_call.add_value_arg(arg_name,
-                                                                                    identifier);
-                                                        }
-                                                        Some(unexpected_token) => return Err(ExpectedVariable(unexpected_token)),
-                                                        None => unexpected_eof!(Symbol(index, At)),
-                                                    }
-                                                }
-                                                Some(Symbol(index, Ampersand)) => {
-                                                    match self.take() {
-                                                        Some(Word(_, identifier)) => {
-                                                            func_call.add_component_arg(arg_name,
-                                                                                        identifier);
-                                                        }
-                                                        Some(unexpected_token) => return Err(ExpectedCompCall(unexpected_token)),
-                                                        None => {
-                                                            unexpected_eof!(Symbol(index,
-                                                                                   Ampersand))
-                                                        }
-                                                    }
-                                                }
-                                                Some(unexpected_token) => {
-                                                    return Err(UnexpectedToken(unexpected_token))
-                                                }
-                                                None => unexpected_eof!(Symbol(index, Equals)),
-
-                                            }
-                                        }
-                                        Some(unexpected_token) => {
-                                            return Err(InvalidFunctionCall(unexpected_token))
-                                        }
-                                        None => unexpected_eof!(Word(index, arg_name)),
-
-                                    }
-                                }
-                                Symbol(_, CloseParam) => break,
-                                Symbol(_, Comma) => {}
-                                unexpected_token => return Err(UnexpectedToken(unexpected_token)),
-                            }
-                        }
-                    }
-                    Some(unexpected_token) => return Err(InvalidFunctionCall(unexpected_token)),
-                    None => unexpected_eof!(Symbol(index, Dollar)),
-                }
-                Ok(Function(func_call))
-            }
+            Some(Symbol(index, Dollar)) => self.parse_function(index),
             Some(Symbol(_, operator)) => Ok(Text(operator.to_string())),
-            Some(Empty) => unreachable!(),
             None => Err(Eof),
         }
+    }
+
+    /// turns all Operators into text until it it reaches the first " or Quote operator.
+    fn read_leading_quotes(&mut self) -> String {
+        let mut value = String::new();
+        while let Some(token) = self.take() {
+            match token {
+                Symbol(_, Quote) => break,
+                Word(_, text) => value.push_str(&*text),
+                Symbol(_, operator) => value.push_str(&*operator.to_string()),
+            }
+        }
+        value
     }
 }

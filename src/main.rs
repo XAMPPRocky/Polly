@@ -28,7 +28,7 @@ fn main() {
                 _ => "en",
             };
 
-            let html = Template::load(path).render(lang);
+            let html = Template::load(path).unwrap().render(lang).unwrap();
 
             if let Some(path) = matches.value_of("file") {
                 let mut file = File::create(path)
