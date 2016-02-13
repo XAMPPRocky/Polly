@@ -55,18 +55,17 @@ impl AstError {
     pub fn values(&self) -> (usize, usize) {
         match *self {
             Eof => (0, 0),
-            ExpectedCompCall(ref lexeme) => (lexeme.index(), lexeme.length()),
-            ExpectedVariable(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidComponent(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidElement(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidFunctionCall(ref lexeme) => (lexeme.index(), lexeme.length()),
-            InvalidTokenInAttributes(ref lexeme) => (lexeme.index(), lexeme.length()),
-            NoNameAttachedToClass(ref lexeme) => (lexeme.index(), lexeme.length()),
-            NoNameAttachedToId(ref lexeme) => (lexeme.index(), lexeme.length()),
-            UnclosedCloseBraces(index) => (index, 1),
-            UnclosedOpenBraces(index) => (index, 1),
-            UnexpectedEof(ref lexeme) => (lexeme.index(), lexeme.length()),
+            ExpectedCompCall(ref lexeme) |
+            ExpectedVariable(ref lexeme) |
+            InvalidComponent(ref lexeme) |
+            InvalidElement(ref lexeme) |
+            InvalidFunctionCall(ref lexeme) |
+            InvalidTokenInAttributes(ref lexeme) |
+            NoNameAttachedToClass(ref lexeme) |
+            NoNameAttachedToId(ref lexeme) |
+            UnexpectedEof(ref lexeme) |
             UnexpectedToken(ref lexeme) => (lexeme.index(), lexeme.length()),
+            UnclosedCloseBraces(index) | UnclosedOpenBraces(index) => (index, 1),
         }
     }
 }
@@ -75,9 +74,8 @@ impl error::Error for AstError {
     fn description(&self) -> &str {
         match *self {
             Eof => "The file ended normally.",
-            ExpectedCompCall(_) => "Component names can only be words.",
+            ExpectedCompCall(_) | InvalidComponent(_) => "Component names can only be words.",
             ExpectedVariable(_) => "Variable names can only be words.",
-            InvalidComponent(_) => "Element names can only be words.",
             InvalidElement(_) => "Element names can only be words.",
             InvalidFunctionCall(_) => "Function names can only be words.",
             InvalidTokenInAttributes(_) => {
@@ -100,18 +98,20 @@ impl Display for AstError {
         use std::error::Error;
         let lexeme = match *self {
             Eof => return write!(f, "{}", self.description()),
-            ExpectedCompCall(ref lexeme) => lexeme,
-            ExpectedVariable(ref lexeme) => lexeme,
-            InvalidComponent(ref lexeme) => lexeme,
-            InvalidElement(ref lexeme) => lexeme,
-            InvalidFunctionCall(ref lexeme) => lexeme,
-            InvalidTokenInAttributes(ref lexeme) => lexeme,
-            NoNameAttachedToClass(ref lexeme) => lexeme,
-            NoNameAttachedToId(ref lexeme) => lexeme,
-            UnclosedCloseBraces(_) => return write!(f, "{}", self.description()),
-            UnclosedOpenBraces(_) => return write!(f, "{}", self.description()),
-            UnexpectedEof(ref lexeme) => lexeme,
+            ExpectedCompCall(ref lexeme) |
+            ExpectedVariable(ref lexeme) |
+            InvalidComponent(ref lexeme) |
+            InvalidElement(ref lexeme) |
+            InvalidFunctionCall(ref lexeme) |
+            InvalidTokenInAttributes(ref lexeme) |
+            NoNameAttachedToClass(ref lexeme) |
+            NoNameAttachedToId(ref lexeme) |
+            UnexpectedEof(ref lexeme) |
             UnexpectedToken(ref lexeme) => lexeme,
+            UnclosedCloseBraces(_) | UnclosedOpenBraces(_) => {
+                return write!(f, "{}", self.description())
+            }
+
         };
         write!(f, "{}, Got: {}", self.description(), lexeme)
     }

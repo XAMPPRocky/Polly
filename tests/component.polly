@@ -1,0 +1,12 @@
+
+
+/!DOCTYPE(html)
+/html&body(@world){}
+
+&name.spaced {!}
+
+&body(@name) {
+    /body {
+        /p {Hello @name&name.spaced()}
+    }
+}

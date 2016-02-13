@@ -54,16 +54,12 @@ impl<'a> Lexer<'a> {
 
     fn take_token(&mut self) -> Option<Lexeme> {
         let mut leading_space = false;
-        loop {
-            if let Some(&(_, character)) = self.peek() {
-                if character.is_whitespace() || character == CARRAGE_RETURN {
-                    let _ = self.take();
-                    leading_space = true;
-                } else {
-                    break;
-                }
+        while let Some(&(_, character)) = self.peek() {
+            if character.is_whitespace() || character == CARRAGE_RETURN {
+                let _ = self.take();
+                leading_space = true;
             } else {
-                return None;
+                break;
             }
         }
 
@@ -92,26 +88,22 @@ impl<'a> Lexer<'a> {
 
                 word.push(character);
 
-                loop {
-                    if let Some(&(_, character)) = self.peek() {
-                        match character {
-                            // The following case is for determining if a character divides words or
-                            // if it is packaged with the words. So things like "Hello}" comes out
-                            // as Text: "Hello" Operator: "}"
-                            ch if !ch.is_alphanumeric() && !ch.is_whitespace() => {
-                                return Some(Word(index, word));
-                            }
-                            ch => {
-                                if !ch.is_whitespace() {
+                while let Some(&(_, character)) = self.peek() {
+                    match character {
+                        // The following case is for determining if a character divides words or
+                        // if it is packaged with the words. So things like "Hello}" comes out
+                        // as Text: "Hello" Operator: "}"
+                        ch if !ch.is_alphanumeric() && !ch.is_whitespace() => {
+                            return Some(Word(index, word));
+                        }
+                        ch => {
+                            if !ch.is_whitespace() {
 
-                                    word.push(self.take().unwrap().1);
-                                } else {
-                                    break;
-                                }
+                                word.push(self.take().unwrap().1);
+                            } else {
+                                break;
                             }
                         }
-                    } else {
-                        break;
                     }
                 }
 

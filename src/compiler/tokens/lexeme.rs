@@ -26,8 +26,7 @@ impl Lexeme {
 
     pub fn index(&self) -> usize {
         match *self {
-            Symbol(index, _) => index,
-            Word(index, _) => index,
+            Symbol(index, _) | Word(index, _) => index,
             Empty => unreachable!(),
         }
     }

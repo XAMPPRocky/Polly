@@ -17,14 +17,14 @@ pub type PolyFn = Box<Fn(BTreeMap<String, ArgValue>, &Rc<RefCell<Template>>)
                          -> Result<String, String>>;
 
 fn std_functions() -> HashMap<String, PolyFn> {
-    use serde_json::Value::*;
+    use serde_json::Value;
     use compiler::tokens::ArgValue::*;
 
     let mut map: HashMap<String, PolyFn> = HashMap::new();
 
     map.insert(String::from("std.each"), Box::new(|args: BTreeMap<String, ArgValue>, parent| {
         let mut output = String::new();
-        if let Some(&Json(Some(Array(ref array)))) = args.get("array") {
+        if let Some(&Json(Some(Value::Array(ref array)))) = args.get("array") {
             if let Some(&Comp(Some(ref component))) = args.get("component") {
                 match component.number_of_args() {
                     0 => {
@@ -45,19 +45,21 @@ fn std_functions() -> HashMap<String, PolyFn> {
                         Ok(output)
                     }
                     _ => {
-                        if let Some(&Object(_)) = array.first() {
-                            let mut iter = array.iter();
-                            while let Some(&Object(ref object)) = iter.next() {
-                                let mut map = BTreeMap::new();
-                                for key in component.args() {
-                                    let key = key.value();
-                                    if let Some(value) = object.get(&*key) {
-                                        map.insert(key, value.clone());
+                        if let Some(&Value::Object(_)) = array.first() {
+                            let iter = array.iter();
+                            for json in iter {
+                                if let Value::Object(ref object) = *json {
+                                    let mut map = BTreeMap::new();
+                                    for key in component.args() {
+                                        let key = key.value();
+                                        if let Some(value) = object.get(&*key) {
+                                            map.insert(key, value.clone());
+                                        }
                                     }
-                                }
-                                output.push_str(&*Template::call_component_with_args(&component,
-                                                                                     parent,
+                                    output.push_str(&*Template::call_component_with_args(&component,
+                                                parent,
                                                                                      map));
+                                }
                             }
                             Ok(output)
                         } else {
@@ -81,15 +83,15 @@ fn std_functions() -> HashMap<String, PolyFn> {
                Box::new(|args, parent| {
 
                    if let Some(&Json(Some(ref json))) = args.get("condition") {
-                       let condition = match json {
-                           &Array(ref array) => !array.is_empty(),
-                           &Null => false,
-                           &Bool(ref boolean) => boolean.clone(),
-                           &I64(ref num) => *num != 0,
-                           &U64(ref num) => *num != 0,
-                           &F64(ref num) => *num != 0.0,
-                           &String(ref string) => !string.is_empty(),
-                           &Object(ref object) => !object.is_empty(),
+                       let condition = match *json {
+                           Value::Array(ref array) => !array.is_empty(),
+                           Value::Null => false,
+                           Value::Bool(ref boolean) => *boolean,
+                           Value::I64(ref num) => *num != 0,
+                           Value::U64(ref num) => *num != 0,
+                           Value::F64(ref num) => *num != 0.0,
+                           Value::String(ref string) => !string.is_empty(),
+                           Value::Object(ref object) => !object.is_empty(),
                        };
 
                        if condition {
@@ -101,7 +103,7 @@ fn std_functions() -> HashMap<String, PolyFn> {
                                            let name = component.args().first().unwrap().value();
                                            let mut map = BTreeMap::new();
                                            match json {
-                                               &Object(ref object) => {
+                                               &Value::Object(ref object) => {
                                                    if let Some(value) = object.get(&name) {
                                                        map.insert(name, value.clone());
                                                    }
@@ -115,7 +117,7 @@ fn std_functions() -> HashMap<String, PolyFn> {
                                                                                  map))
                                        }
                                        _ => {
-                                           if let &Object(ref map) = json {
+                                           if let Value::Object(ref map) = *json {
                                                Ok(Template::call_component_with_args(component,
                                                                                      parent,
                                                                                      map.clone()))
@@ -268,7 +270,7 @@ impl Template {
                                        source,
                                        variables,
                                        Rc::new(RefCell::new(self)));
-        codegen.to_html()
+        codegen.generate_html()
     }
 }
 
@@ -279,10 +281,9 @@ mod tests {
     use std::io::Read;
     use std::collections::BTreeMap;
     use serde_json::Value;
-    use serde_json::Value::*;
 
     const BASIC: &'static str = "<!DOCTYPE html><html><body><p>Hello World!</p></body></html>";
-
+    const BASIC_DE: &'static str = "<!DOCTYPE html><html><body><p>Hallo Welt!</p></body></html>";
     #[test]
     fn element() {
         assert_eq!(Template::load("./tests/element.polly").render("en"), BASIC);
@@ -291,7 +292,7 @@ mod tests {
     #[test]
     fn component() {
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        json.insert("world".to_owned(), String("World".to_owned()));
+        json.insert("world".to_owned(), Value::String("World".to_owned()));
         let result = Template::load("./tests/component.polly").json(json).render("en");
         assert_eq!(result, BASIC);
     }
@@ -300,7 +301,7 @@ mod tests {
     #[test]
     fn variable() {
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        json.insert("world".to_owned(), String("World".to_owned()));
+        json.insert("world".to_owned(), Value::String("World".to_owned()));
         let result = Template::load("./tests/variable.polly").json(json).render("en");
         assert_eq!(result, BASIC);
     }
@@ -312,9 +313,9 @@ mod tests {
                         html><html><body><ul><li>Rust</li><li>C++</li><li>JavaScript</li></ul></bo\
                         dy></html>";
         json.insert("array".to_owned(),
-                    Array(vec![String("Rust".to_owned()),
-                               String("C++".to_owned()),
-                               String("JavaScript".to_owned())]));
+                    Value::Array(vec![Value::String("Rust".to_owned()),
+                                      Value::String("C++".to_owned()),
+                                      Value::String("JavaScript".to_owned())]));
         assert_eq!(Template::load("./tests/function_each.polly").json(json).render("en"),
                    expected);
 
@@ -323,8 +324,9 @@ mod tests {
     #[test]
     fn function_if() {
         let mut json: BTreeMap<String, Value> = BTreeMap::new();
-        json.insert(String::from("condition"), Bool(true));
-        json.insert(String::from("text"), String(String::from("Hello World!")));
+        json.insert(String::from("condition"), Value::Bool(true));
+        json.insert(String::from("text"),
+                    Value::String(String::from("Hello World!")));
         assert_eq!(Template::load("./tests/function_if.polly").json(json).render("en"),
                    BASIC);
 
@@ -333,8 +335,6 @@ mod tests {
     #[test]
     fn locales() {
         let json: BTreeMap<String, Value> = BTreeMap::new();
-        const BASIC_DE: &'static str = "<!DOCTYPE html><html><body><p>Hallo \
-                                        Welt!</p></body></html>";
 
         assert_eq!(Template::load("./tests/locales.polly").json(json.to_owned()).render("en"),
                    BASIC);

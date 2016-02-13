@@ -9,9 +9,8 @@ pub enum ArgKey {
 impl ArgKey {
     pub fn value(&self) -> String {
         use self::ArgKey::*;
-        match self {
-            &Json(ref string) => string.clone(),
-            &Comp(ref string) => string.clone(),
+        match *self {
+            Json(ref string) | Comp(ref string) => string.clone(),
         }
     }
 }

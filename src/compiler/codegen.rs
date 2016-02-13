@@ -8,6 +8,11 @@ use serde_json::Value;
 use super::*;
 use template::Template;
 
+const HTML_ERROR: &'static str = "Couldn't write to html buffer.";
+const VOID_ELEMENTS: [&'static str; 13] = ["area", "base", "br", "col", "hr", "img", "input",
+                                           "link", "meta", "command", "keygen", "source",
+                                           "!DOCTYPE"];
+
 macro_rules! exit {
     () => {{
       if cfg!(debug_assertions) {
@@ -55,10 +60,10 @@ impl Codegen {
         }
     }
 
-    pub fn to_html(&mut self) -> String {
+    pub fn generate_html(&mut self) -> String {
         let mut html = String::new();
 
-        for element in self.elements.iter() {
+        for element in &self.elements {
             if let Some(string) = self.render(element) {
                 html.push_str(&*string);
             } else {
@@ -89,10 +94,10 @@ impl Codegen {
                 parent: parent.clone(),
             }
         };
-        codegen.to_html()
+        codegen.generate_html()
     }
 
-    fn from_component(&self, component_call: ComponentCall) -> String {
+    fn generate_from_component(&self, component_call: ComponentCall) -> String {
         let parent = self.parent.borrow();
         if let Some(component) = parent.get_component(component_call.name()) {
             let args = component.args();
@@ -103,9 +108,9 @@ impl Codegen {
 
                 for (ref arg, ref value) in zipped {
 
-                    match *arg {
-                        &ArgKey::Json(ref arg_name) => {
-                            if let &&ArgKey::Json(ref arg_value) = value {
+                    match **arg {
+                        ArgKey::Json(ref arg_name) => {
+                            if let ArgKey::Json(ref arg_value) = **value {
                                 let value = match self.variables.get(&*arg_value) {
                                     Some(text) => text.clone(),
                                     None => Value::Null,
@@ -114,14 +119,15 @@ impl Codegen {
                                                Value::String(value_to_string(&value)));
                             }
                         }
-                        &ArgKey::Comp(_) => {
+                        ArgKey::Comp(_) => {
                             println!("Components can't be passed to other components, they are \
                                       global so you shouldn't need to do it.");
                             exit!()
                         }
                     }
                 }
-                Codegen::render_component(component.ast(), arg_map, self.parent.clone()).to_html()
+                Codegen::render_component(component.ast(), arg_map, self.parent.clone())
+                    .generate_html()
             } else {
                 println!("Incorrect number of arguments passed");
                 exit!()
@@ -133,191 +139,193 @@ impl Codegen {
         }
     }
 
+    fn render_element(&self, element: &Element) -> Option<String> {
+        use std::io::Write;
+        let mut html = Vec::new();
+        let tag = &**element.tag();
+        write!(&mut html, "<{}", tag).expect(HTML_ERROR);
+
+        if !element.classes().is_empty() {
+
+            write!(&mut html, " class=\"").expect(HTML_ERROR);
+            let mut classes_iter = element.classes().iter();
+            write!(&mut html, "{}", classes_iter.next().unwrap()).expect(HTML_ERROR);
+
+            for class in classes_iter {
+                if !class.is_empty() {
+                    write!(&mut html, " {}", &*class).expect(HTML_ERROR);
+                }
+            }
+            write!(&mut html, "\"").expect(HTML_ERROR);
+        }
+
+        if !element.attributes().is_empty() {
+            for (key, value) in element.attributes() {
+                if !key.is_empty() {
+                    if !value.is_empty() {
+                        write!(&mut html, " {}=\"{}\"", key, value).expect(HTML_ERROR);
+                    } else {
+                        write!(&mut html, " {}", key).expect(HTML_ERROR);
+                    }
+                }
+            }
+        }
+
+        write!(&mut html, ">").expect(HTML_ERROR);
+
+
+        for void in &VOID_ELEMENTS {
+            if void == &tag {
+                return Some(String::from_utf8(html).unwrap());
+            }
+        }
+
+        if let Some(ref resource) = *element.resource() {
+            write!(&mut html,
+                   "{}",
+                   self.generate_from_component(resource.clone()))
+                .expect(HTML_ERROR);
+
+        } else {
+            for child in element.children() {
+                if let Some(rendered_child) = self.render(child) {
+                    write!(&mut html, "{}", rendered_child).expect(HTML_ERROR);
+                }
+            }
+        }
+
+        write!(&mut html, "</{}>", tag).expect(HTML_ERROR);
+
+        Some(String::from_utf8(html).unwrap())
+    }
+
+    fn render_error(&self, error: &AstError) -> Option<String> {
+        if *error == super::AstError::Eof {
+            return None;
+        }
+        let (index, token_length) = error.values();
+        let mut line_number: usize = 0;
+        let mut col_number: usize = 1;
+
+        for ch in self.source[..index].chars() {
+            col_number += 1;
+            if ch == '\n' {
+                line_number += 1;
+                col_number = 1;
+            }
+        }
+
+        let mut section = String::new();
+        for ch in self.source[..index].chars().rev() {
+            if ch == '\n' {
+                section = section.chars().rev().collect();
+                break;
+            } else {
+                section.push(ch);
+            }
+        }
+
+        for ch in self.source[index..].chars() {
+            if ch == '\n' {
+                break;
+            } else {
+                section.push(ch);
+            }
+        }
+        println!("");
+        let mut underline = String::from("^");
+
+        for _ in 1..token_length {
+            underline.push('~');
+        }
+        let file_name_print = format!("{}:{}:{}:", self.file, line_number, col_number);
+        println!("{} {}", file_name_print, error);
+        println!("{} {}", file_name_print, section.trim());
+        println!("{0:>1$}",
+                 underline,
+                 2 + col_number + file_name_print.len() - (section.len() - section.trim().len()));
+        exit!()
+    }
+
+    fn render_function(&self, function: &FunctionCall) -> Option<String> {
+        let mut arguments: BTreeMap<String, ArgValue> = BTreeMap::new();
+
+        for (key, value) in function.args().clone() {
+
+            match value {
+                ArgKey::Json(id) => {
+                    let real_value = self.variables.get(&*id);
+                    let real_value = match real_value {
+                        Some(value) => Some(value.clone()),
+                        None => None,
+                    };
+                    arguments.insert(key, ArgValue::Json(real_value));
+                }
+                ArgKey::Comp(id) => {
+                    let parent = self.parent.borrow();
+                    let real_value = match parent.get_component(&id) {
+                        Some(value) => Some(value.clone()),
+                        None => None,
+                    };
+                    arguments.insert(key, ArgValue::Comp(real_value));
+                }
+            }
+        }
+
+        let parent = self.parent.borrow();
+        if let Some(fun) = parent.get_function(function.identifier()) {
+            match fun(arguments, &self.parent) {
+                Ok(string) => Some(string),
+                Err(error) => {
+                    println!("{}", error);
+                    exit!();
+                }
+            }
+        } else {
+            println!("Function doesn't exist.");
+            exit!();
+        }
+    }
+
     fn render(&self, token: &AstResult) -> Option<String> {
         use super::Token::*;
-        match token {
-            &Ok(Html(ref element)) => {
-                use std::io::Write;
-                let mut html = Vec::new();
-                let tag = &**element.tag();
-                const HTML_ERROR: &'static str = "Couldn't write to html buffer.";
-                write!(&mut html, "<{}", tag).ok().expect(HTML_ERROR);
-
-                if !element.classes().is_empty() {
-
-                    write!(&mut html, " class=\"").ok().expect(HTML_ERROR);
-                    let mut classes_iter = element.classes().iter();
-                    write!(&mut html, "{}", classes_iter.next().unwrap()).ok().expect(HTML_ERROR);
-
-                    for class in classes_iter {
-                        if !class.is_empty() {
-                            write!(&mut html, " {}", &*class).ok().expect(HTML_ERROR);
-                        }
-                    }
-                    write!(&mut html, "\"").ok().expect(HTML_ERROR);
-                }
-
-                if !element.attributes().is_empty() {
-                    for (key, value) in element.attributes() {
-                        if !key.is_empty() {
-                            if !value.is_empty() {
-                                write!(&mut html, " {}=\"{}\"", key, value).ok().expect(HTML_ERROR);
-                            } else {
-                                write!(&mut html, " {}", key).ok().expect(HTML_ERROR);
-                            }
-                        }
-                    }
-                }
-
-                write!(&mut html, ">").ok().expect(HTML_ERROR);
-
-
-                const VOID_ELEMENTS: [&'static str; 13] = ["area", "base", "br", "col", "hr",
-                                                           "img", "input", "link", "meta",
-                                                           "command", "keygen", "source",
-                                                           "!DOCTYPE"];
-
-                for void in VOID_ELEMENTS.iter() {
-                    if void == &tag {
-                        return Some(String::from_utf8(html).unwrap());
-                    }
-                }
-
-                if let &Some(ref resource) = element.resource() {
-                    write!(&mut html, "{}", self.from_component(resource.clone()))
-                        .ok()
-                        .expect(HTML_ERROR);
-
-                } else {
-                    for child in element.children() {
-                        if let Some(rendered_child) = self.render(child) {
-                            write!(&mut html, "{}", rendered_child).ok().expect(HTML_ERROR);
-                        }
-                    }
-                }
-
-                write!(&mut html, "</{}>", tag).ok().expect(HTML_ERROR);
-
-                Some(String::from_utf8(html).unwrap())
-            }
-            &Ok(Text(ref text)) => Some(text.clone()),
-            &Ok(Variable(ref variable)) => {
+        match *token {
+            Ok(Html(ref element)) => self.render_element(element),
+            Ok(Text(ref text)) => Some(text.clone()),
+            Ok(Variable(ref variable)) => {
                 match self.variables.get(variable) {
                     Some(value) => Some(value_to_string(&value)),
                     None => Some(String::new()),
                 }
             }
-            &Ok(CompCall(ref component_call)) => Some(self.from_component(component_call.clone())),
-            &Ok(Function(ref function)) => {
-                let mut arguments: BTreeMap<String, ArgValue> = BTreeMap::new();
-
-                for (key, value) in function.args().clone() {
-
-                    match value {
-                        ArgKey::Json(id) => {
-                            let real_value = self.variables.get(&*id);
-                            let real_value = match real_value {
-                                Some(value) => Some(value.clone()),
-                                None => None,
-                            };
-                            arguments.insert(key, ArgValue::Json(real_value));
-                        }
-                        ArgKey::Comp(id) => {
-                            let parent = self.parent.borrow();
-                            let real_value = match parent.get_component(&id) {
-                                Some(value) => Some(value.clone()),
-                                None => None,
-                            };
-                            arguments.insert(key, ArgValue::Comp(real_value));
-                        }
-                    }
-                }
-
-                let parent = self.parent.borrow();
-                if let Some(fun) = parent.get_function(function.identifier()) {
-                    match fun(arguments, &self.parent) {
-                        Ok(string) => Some(string),
-                        Err(error) => {
-                            println!("{}", error);
-                            exit!();
-                        }
-                    }
-                } else {
-                    println!("Function doesn't exist.");
-                    exit!();
-                }
+            Ok(CompCall(ref component_call)) => {
+                Some(self.generate_from_component(component_call.clone()))
             }
-            &Err(ref error) => {
-                if *error == super::AstError::Eof {
-                    return None;
-                }
-                let (index, token_length) = error.values();
-                let mut line_number: usize = 0;
-                let mut col_number: usize = 1;
-
-                for ch in self.source[..index].chars() {
-                    col_number += 1;
-                    if ch == '\n' {
-                        line_number += 1;
-                        col_number = 1;
-                    }
-                }
-
-                let mut section = String::new();
-                for ch in self.source[..index].chars().rev() {
-                    if ch == '\n' {
-                        section = section.chars().rev().collect();
-                        break;
-                    } else {
-                        section.push(ch);
-                    }
-                }
-
-                for ch in self.source[index..].chars() {
-                    if ch == '\n' {
-                        break;
-                    } else {
-                        section.push(ch);
-                    }
-                }
-                println!("");
-                let mut underline = String::from("^");
-
-                for _ in 1..token_length {
-                    underline.push('~');
-                }
-                let file_name_print = format!("{}:{}:{}:", self.file, line_number, col_number);
-                println!("{} {}", file_name_print, error);
-                println!("{} {}", file_name_print, section.trim());
-                println!("{0:>1$}",
-                         underline,
-                         2 + col_number + file_name_print.len() -
-                         (section.len() - section.trim().len()));
-                exit!()
-            }
+            Ok(Function(ref function)) => self.render_function(function),
+            Err(ref error) => self.render_error(error),
         }
     }
 }
 
 fn value_to_string(value: &Value) -> String {
-    use serde_json::Value::*;
-    match value {
-        &Null => String::new(),
-        &Bool(value) => value.to_string(),
-        &I64(value) => value.to_string(),
-        &U64(value) => value.to_string(),
-        &F64(value) => value.to_string(),
-        &String(ref string) => string.clone(),
-        &Array(ref vector) => {
+    use serde_json::Value;
+    match *value {
+        Value::Null => String::new(),
+        Value::Bool(value) => value.to_string(),
+        Value::I64(value) => value.to_string(),
+        Value::U64(value) => value.to_string(),
+        Value::F64(value) => value.to_string(),
+        Value::String(ref string) => string.clone(),
+        Value::Array(ref vector) => {
             let mut concated_string = String::new();
             for value in vector {
                 concated_string.push_str(&*value_to_string(value));
             }
             concated_string
         }
-        &Object(ref object) => {
+        Value::Object(ref object) => {
             let mut concated_string = String::new();
-            for (_, ref value) in object {
+            for ref value in object.values() {
                 concated_string.push_str(&*value_to_string(*value));
             }
             concated_string
