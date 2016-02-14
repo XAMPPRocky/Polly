@@ -158,17 +158,22 @@ pub struct Template {
 
 
 impl Template {
-    fn add_components(&mut self, mut components: HashMap<String, Component>) {
+    fn add_components(&mut self,
+                      mut components: HashMap<String, Component>)
+                      -> Result<(), TemplateError> {
         for (key, value) in components.drain() {
             if let Some(_) = self.components.insert(key, value) {
-                panic!("Component was already defined.");
+                return Err(TemplateError::PreDefinedComponent);
             }
         }
+        Ok(())
     }
 
-    fn add_component(&mut self, key: String, value: Component) {
+    fn add_component(&mut self, key: String, value: Component) -> Result<(), TemplateError> {
         if let Some(_) = self.components.insert(key, value) {
-            panic!("Component was already defined.");
+            return Err(TemplateError::PreDefinedComponent);
+        } else {
+            return Ok(());
         }
     }
 
@@ -251,7 +256,9 @@ impl Template {
         match Template::read_to_source(path) {
             Ok(source) => {
                 for (key, value) in Parser::component_pass(Lexer::new(&*source).output()) {
-                    self.add_component(key, value);
+                    if let Err(error) = self.add_component(key, value) {
+                        return Err(error);
+                    };
                 }
                 Ok(())
             }
@@ -273,7 +280,9 @@ impl Template {
     pub fn render(mut self, lang: &str) -> Result<String, TemplateError> {
         let output = {
             let parser = Parser::new(Lexer::new(&self.source).output());
-            self.add_components(parser.get_components());
+            if let Err(error) = self.add_components(parser.get_components()) {
+                return Err(error);
+            };
             parser.output()
         };
         let file_name = self.file.file_name().unwrap().to_str().unwrap().to_owned();
@@ -292,7 +301,9 @@ impl Template {
                 Ok(source) => {
                     for (key, value) in Parser::component_pass(Lexer::new(&*source).output()) {
                         let new_key = format!("locales.{}", key);
-                        self.add_component(new_key, value);
+                        if let Err(error) = self.add_component(new_key, value) {
+                            return Err(error);
+                        };
                     }
                 }
                 error => return error,
@@ -313,6 +324,8 @@ impl Template {
 /// Errors relating to the templating rendering.
 #[derive(Debug)]
 pub enum TemplateError {
+    /// The component called already exists.
+    PreDefinedComponent,
     /// The function called already exists.
     PreDefinedFunction,
     /// Any IO errors, from the methods.
