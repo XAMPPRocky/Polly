@@ -252,6 +252,7 @@ impl Template {
         }
     }
 
+    /// Imports components from another template.
     pub fn import<P: AsRef<Path>>(&mut self, path: P) -> Result<(), TemplateError> {
         match Template::read_to_source(path) {
             Ok(source) => {
