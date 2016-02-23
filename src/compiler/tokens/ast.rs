@@ -52,6 +52,7 @@ pub enum AstError {
 }
 
 impl AstError {
+    /// The length of a token, for error printing.
     pub fn values(&self) -> (usize, usize) {
         match *self {
             Eof => (0, 0),

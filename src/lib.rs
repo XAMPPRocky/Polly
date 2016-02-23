@@ -12,4 +12,4 @@ mod compiler;
 mod template;
 
 pub use template::{PolyFn, std_functions, Template, TemplateError};
-pub use compiler::ArgValue;
+pub use compiler::{ArgValue, AstError, CodegenError};
