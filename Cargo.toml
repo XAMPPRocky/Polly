@@ -12,7 +12,7 @@ name = "pollybin"
 path = "src/main.rs"
 
 [dependencies]
-clap = {version = "*", features = ["yaml"]}
-serde = "*"
-serde_json = "*"
-lazy_static = "*"
+clap = {version = "2.1.1", features = ["yaml"]}
+serde = "0.6.7"
+serde_json = "0.6.0"
+lazy_static = "0.1.15"

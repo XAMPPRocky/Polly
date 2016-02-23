@@ -28,6 +28,11 @@ macro_rules! template_try {
 /// Polly's functions into the documentation.
 ///
 /// ## std.each
+/// **Arguments**
+/// 
+/// - array - The array of JSON to be iterated over.
+/// - component - The component to render for each element in array.
+/// 
 /// Applies a component to each element in the array. If the component takes more than one argument,
 /// the component can only be used with objects(in which case the function will attempt to find the
 /// object's property based on the argument name), or arrays of the same length as the number of
@@ -37,7 +42,6 @@ macro_rules! template_try {
 /// extern crate serde_json;
 /// extern crate polly;
 /// 
-/// use std::collections::BTreeMap;
 /// use serde_json::Value;
 /// use polly::Template;
 /// fn main() {
@@ -67,7 +71,93 @@ macro_rules! template_try {
 /// ```
 ///
 /// ## std.if
+/// **Arguments**
 /// 
+/// - condition - The condition to be checked.
+/// - component - The component to be rendered based on the trueness of the condition.
+/// - json(*optional*) - The JSON passed to the component if needed.
+/// 
+/// Checks the JSON value of condition, and if it is true, renders the component, optinally passing
+/// in JSON for the component. It is important to note that what counts as true is similar to \
+/// JavaScript, so it doesn't have to be strictly a boolean.
+/// 
+/// **Boolean conditions**
+/// 
+/// - Array - false if the array's length is 0.
+/// - Null - Always false.
+/// - Bool - The literal value.
+/// - I64 - false if = 0.
+/// - U64 - false if = 0.
+/// - F64 - false if = 0.0.
+/// - String - false if the string is empty.
+/// - Object - false if the object is empty.
+/// 
+/// ```
+/// extern crate serde_json;
+/// extern crate polly;
+/// 
+/// use serde_json::Value;
+/// use polly::Template;
+/// fn main() {
+///     const EXPECTED: &'static str = "\
+///     <html>\
+///         <body>\
+///         </body>\
+///     </html>";
+///     let json: Value = serde_json::from_str(r#"{"bool": false}"#).unwrap();
+///     let json = json.as_object().unwrap().clone();
+///     let template = Template::load_from_source("documentation", r#"
+///     &component {/h1{Hello World!}}
+///     /html {
+///        /body {
+///            $std.if(component = &component, condition = @bool)
+///        }
+///     }
+///     "#);
+///     
+///      assert_eq!(template.json(json).no_locales().render("en").unwrap(), EXPECTED);
+/// }
+/// ```
+/// 
+/// ## std.if_else
+/// **Arguments**
+/// 
+/// - condition - The condition to be checked.
+/// - component - The component to be rendered based on the trueness of the condition.
+/// - else - The component rendered if the condition is false.
+/// - json(*optional*) - The JSON passed to the component, or the else component if needed.
+/// 
+/// Follows the same rules as **std.if** except with the ability to render a component if the value
+/// is false. 
+/// 
+/// ```
+/// extern crate serde_json;
+/// extern crate polly;
+/// 
+/// use serde_json::Value;
+/// use polly::Template;
+/// fn main() {
+///     const EXPECTED: &'static str = "\
+///     <html>\
+///         <body>\
+///             <h1>Goodbye World!</h1>\
+///         </body>\
+///     </html>";
+///     let json: Value = serde_json::from_str(r#"{"bool": false}"#).unwrap();
+///     let json = json.as_object().unwrap().clone();
+///     let template = Template::load_from_source("documentation", r#"
+///     &hello {Hello}
+///     &goodbye {Goodbye}
+///     /html {
+///        /body {
+///            /h1 {$std.if_else(component = &hello, condition = @bool, else = &goodbye) World!}
+///        }
+///     }
+///     "#);
+///     
+///      assert_eq!(template.json(json).no_locales().render("en").unwrap(), EXPECTED);
+/// }
+/// ```
 pub fn std_functions() -> HashMap<String, PolyFn> {
     use serde_json::Value;
     use compiler::tokens::ArgValue::*;
@@ -492,8 +582,7 @@ mod tests {
         assert_eq!(Template::load("./tests/element.polly")
                        .unwrap()
                        .no_locales()
-                       .render("en")
-                       .unwrap(),
+                       .unwrap_render("en"),
                    BASIC);
     }
 
@@ -501,19 +590,19 @@ mod tests {
     fn component() {
         let json: Value = serde_json::from_str(r#"{"world": "World"}"#).unwrap();
 
-        let result = Template::load("./tests/component.polly")
-                         .unwrap()
-                         .no_locales()
-                         .json(json.as_object().unwrap().to_owned())
-                         .render("en");
-        assert_eq!(result.unwrap(), BASIC);
+        let template = Template::load("./tests/component.polly")
+                           .unwrap()
+                           .no_locales()
+                           .json(json.as_object().unwrap().to_owned())
+                           .render("en");
+        assert_eq!(template.unwrap(), BASIC);
     }
 
     #[test]
     fn component_imported() {
         let mut template = Template::load("./tests/component_import.polly").unwrap().no_locales();
         template.import("./tests/imported.polly").unwrap();
-        assert_eq!(template.render("en").unwrap(), BASIC);
+        assert_eq!(template.unwrap_render("en"), BASIC);
     }
 
 
@@ -521,24 +610,22 @@ mod tests {
     fn variable() {
         let json: Value = serde_json::from_str(r#"{"world": "World"}"#).unwrap();
 
-        let result = Template::load("./tests/variable.polly")
-                         .unwrap()
-                         .no_locales()
-                         .json(json.as_object().unwrap().to_owned())
-                         .render("en");
-        assert_eq!(result.unwrap(), BASIC);
+        let template = Template::load("./tests/variable.polly")
+                           .unwrap()
+                           .no_locales()
+                           .json(json.as_object().unwrap().to_owned());
+        assert_eq!(template.unwrap_render("en"), BASIC);
     }
 
     #[test]
     fn variable_inside_another_variable() {
         let json: Value = serde_json::from_str(r#"{"object": {"world": "World"}}"#).unwrap();
 
-        let result = Template::load("./tests/variable_inside.polly")
-                         .unwrap()
-                         .no_locales()
-                         .json(json.as_object().unwrap().to_owned())
-                         .render("en");
-        assert_eq!(result.unwrap(), BASIC);
+        let template = Template::load("./tests/variable_inside.polly")
+                           .unwrap()
+                           .no_locales()
+                           .json(json.as_object().unwrap().to_owned());
+        assert_eq!(template.unwrap_render("en"), BASIC);
     }
 
     #[test]
@@ -553,8 +640,7 @@ mod tests {
                        .unwrap()
                        .no_locales()
                        .json(json.as_object().unwrap().to_owned())
-                       .render("en")
-                       .unwrap(),
+                       .unwrap_render("en"),
                    expected);
 
     }
@@ -568,8 +654,7 @@ mod tests {
                        .unwrap()
                        .no_locales()
                        .json(json.as_object().unwrap().to_owned())
-                       .render("en")
-                       .unwrap(),
+                       .unwrap_render("en"),
                    BASIC);
 
     }
@@ -583,8 +668,7 @@ mod tests {
                        .unwrap()
                        .no_locales()
                        .json(json.as_object().unwrap().to_owned())
-                       .render("en")
-                       .unwrap(),
+                       .unwrap_render("en"),
                    BASIC);
 
     }
@@ -596,15 +680,15 @@ mod tests {
 
         assert_eq!(Template::load("./tests/locales.polly")
                        .unwrap()
+                       .locales_dir("./tests/locales/")
                        .json(json.to_owned())
-                       .render("en")
-                       .unwrap(),
+                       .unwrap_render("en"),
                    BASIC);
         assert_eq!(Template::load("./tests/locales.polly")
                        .unwrap()
+                       .locales_dir("./tests/locales/")
                        .json(json)
-                       .render("de")
-                       .unwrap(),
+                       .unwrap_render("de"),
                    BASIC_DE);
     }
 

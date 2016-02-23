@@ -23,9 +23,6 @@ fn main() {
                                 .expect("Couldn't find file, please make sure your path is \
                                          correct.");
         if path_metadata.is_file() {
-            let mut file = File::open(path).ok().expect("This file couldn't be opened");
-            let mut contents = String::new();
-            file.read_to_string(&mut contents).ok().expect("Couldn't write to buffer");
             let lang = match matches.value_of("lang") {
                 Some(lang) => lang,
                 _ => "en",
