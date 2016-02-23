@@ -3,10 +3,13 @@ extern crate clap;
 extern crate polly;
 extern crate serde_json;
 
-use clap::App;
+use std::collections::BTreeMap;
 use std::fs::{File, metadata};
 use std::io::{Read, Write};
+
+use clap::App;
 use polly::Template;
+use serde_json::Value;
 
 fn main() {
     let yaml = load_yaml!("../cli.yml");
@@ -28,7 +31,26 @@ fn main() {
                 _ => "en",
             };
 
-            let html = Template::load(path).unwrap().render(lang).unwrap();
+            let json = if let Some(path) = matches.value_of("json") {
+                let contents = {
+                    let mut file = File::open(path).expect("JSON File not found");
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents).expect("Couldn't JSON read file.");
+                    contents
+                };
+                match serde_json::from_str(&*contents).expect("Wasn't valid JSON") {
+                    Value::Object(object) => object,
+                    _ => panic!("Wasn't a JSON object"),
+                }
+            } else {
+                BTreeMap::new()
+            };
+
+            let html = if matches.is_present("no-locales") {
+                Template::load(path).unwrap().json(json).no_locales().render(lang).unwrap()
+            } else {
+                Template::load(path).unwrap().json(json).render(lang).unwrap()
+            };
 
             if let Some(path) = matches.value_of("file") {
                 let mut file = File::create(path)
@@ -38,6 +60,8 @@ fn main() {
             } else {
                 println!("{}", html);
             }
+        } else {
+            panic!("Path provided wasn't a file: {}", path);
         }
     }
 }

@@ -1,0 +1,11 @@
+/!DOCTYPE(html)
+/html {
+    /body {
+        /p {
+            $std.if_else(condition = @condition, component = &text, json = @text, else = &other)
+        }
+    }
+}
+
+&text(@text) {Wrong! @text}
+&other(@text) {@text}

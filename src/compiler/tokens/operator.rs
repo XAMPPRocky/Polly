@@ -42,21 +42,21 @@ impl Display for Operator {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use self::Operator::*;
         let ch = match *self {
-            Ampersand => AMPERSAND.to_string(),
-            At => AT.to_string(),
-            BackSlash => BACKSLASH.to_string(),
-            CloseBrace => CLOSEBRACE.to_string(),
-            CloseParam => CLOSEPARAM.to_string(),
-            Comma => COMMA.to_string(),
-            Dollar => DOLLAR.to_string(),
-            Dot => DOT.to_string(),
-            Equals => EQUALS.to_string(),
-            ForwardSlash => FORWARDSLASH.to_string(),
-            OpenBrace => OPENBRACE.to_string(),
-            OpenParam => OPENPARAM.to_string(),
-            Pound => POUND.to_string(),
-            Quote => DOUBLEQUOTE.to_string(),
-            Star => STAR.to_string(),
+            Ampersand => AMPERSAND,
+            At => AT,
+            BackSlash => BACKSLASH,
+            CloseBrace => CLOSEBRACE,
+            CloseParam => CLOSEPARAM,
+            Comma => COMMA,
+            Dollar => DOLLAR,
+            Dot => DOT,
+            Equals => EQUALS,
+            ForwardSlash => FORWARDSLASH,
+            OpenBrace => OPENBRACE,
+            OpenParam => OPENPARAM,
+            Pound => POUND,
+            Quote => DOUBLEQUOTE,
+            Star => STAR,
         };
         write!(f, "{}", ch)
     }

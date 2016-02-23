@@ -1,47 +1,41 @@
 use std::collections::BTreeMap;
-use std::process;
 use std::cell::RefCell;
-
+use std::error;
+use std::fmt;
+use std::io;
 use std::rc::Rc;
+use std::string;
 
 use serde_json::Value;
 use super::*;
 use template::Template;
 
-const HTML_ERROR: &'static str = "Couldn't write to html buffer.";
 const VOID_ELEMENTS: [&'static str; 13] = ["area", "base", "br", "col", "hr", "img", "input",
                                            "link", "meta", "command", "keygen", "source",
                                            "!DOCTYPE"];
+pub type CodegenResult = Result<String, CodegenError>;
 
-macro_rules! exit {
-    () => {{
-      if cfg!(debug_assertions) {
-          panic!()
-      } else {
-          process::exit(101);
-      }  
-    }}
+macro_rules! html_try {
+    ($result:expr) => {
+        if let Err(io_error) = $result {
+            return Err(CodegenError::IoError(io_error));
+        }
+    }
 }
 
 pub struct Codegen {
     elements: Vec<AstResult>,
-    source: String,
-    file: String,
     variables: BTreeMap<String, Value>,
     parent: Rc<RefCell<Template>>,
 }
 
 impl Codegen {
     pub fn new(ast: Vec<AstResult>,
-               file: String,
-               source: String,
                json: BTreeMap<String, Value>,
                parent: Rc<RefCell<Template>>)
                -> Self {
         Codegen {
             elements: ast,
-            file: file,
-            source: source,
             variables: json,
             parent: parent,
         }
@@ -50,54 +44,48 @@ impl Codegen {
     pub fn render_component(ast: Vec<AstResult>,
                             json: BTreeMap<String, Value>,
                             parent: Rc<RefCell<Template>>)
-                            -> Self {
+                            -> CodegenResult {
         Codegen {
             elements: ast,
             variables: json,
-            file: String::new(),
-            source: String::new(),
             parent: parent,
         }
+        .generate_html()
     }
 
-    pub fn generate_html(&mut self) -> String {
+    pub fn generate_html(&mut self) -> CodegenResult {
         let mut html = String::new();
 
         for element in &self.elements {
-            if let Some(string) = self.render(element) {
-                html.push_str(&*string);
-            } else {
-                break;
+            match self.render(element) {
+                Ok(string) => html.push_str(&*string),
+                Err(error) => return Err(error),
             }
         }
-        html
+        Ok(html)
     }
 
     pub fn call_component(component: &Component,
                           arg_map: Option<BTreeMap<String, Value>>,
                           parent: &Rc<RefCell<Template>>)
-                          -> String {
+                          -> CodegenResult {
         let mut codegen = if let Some(arg_map) = arg_map {
             Codegen {
                 elements: component.ast(),
                 variables: arg_map,
-                file: String::new(),
-                source: String::new(),
                 parent: parent.clone(),
             }
         } else {
             Codegen {
                 elements: component.ast(),
                 variables: BTreeMap::new(),
-                file: String::new(),
-                source: String::new(),
                 parent: parent.clone(),
             }
         };
         codegen.generate_html()
     }
 
-    fn generate_from_component(&self, component_call: ComponentCall) -> String {
+    fn generate_from_component(&self, component_call: ComponentCall) -> CodegenResult {
         let parent = self.parent.borrow();
         if let Some(component) = parent.get_component(component_call.name()) {
             let args = component.args();
@@ -111,155 +99,109 @@ impl Codegen {
                     match **arg {
                         ArgKey::Json(ref arg_name) => {
                             if let ArgKey::Json(ref arg_value) = **value {
-                                let value = match self.variables.get(&*arg_value) {
-                                    Some(text) => text.clone(),
-                                    None => Value::Null,
+                                let value = match self.get_variable(arg_value) {
+                                    Ok(value) => value,
+                                    Err(error) => return Err(error),
                                 };
-                                arg_map.insert(arg_name.clone(),
-                                               Value::String(value_to_string(&value)));
+                                arg_map.insert(arg_name.clone(), value);
                             }
                         }
-                        ArgKey::Comp(_) => {
-                            println!("Components can't be passed to other components, they are \
-                                      global so you shouldn't need to do it.");
-                            exit!()
+                        ArgKey::Comp(ref name) => {
+                            return Err(CodegenError::CompPassedToComp(name.clone()))
                         }
                     }
                 }
                 Codegen::render_component(component.ast(), arg_map, self.parent.clone())
-                    .generate_html()
             } else {
-                println!("Incorrect number of arguments passed");
-                exit!()
+                Err(CodegenError::WrongNumberOfArguments(args.len(), arg_values.len()))
             }
         } else {
-            println!("Component {} doesn't exist make sure it was imported correctly",
-                     component_call.name());
-            exit!()
+            Err(CodegenError::NoSuchComponent(String::from(component_call.name())))
         }
     }
 
-    fn render_element(&self, element: &Element) -> Option<String> {
+    fn render_element(&self, element: &Element) -> CodegenResult {
         use std::io::Write;
         let mut html = Vec::new();
         let tag = &**element.tag();
-        write!(&mut html, "<{}", tag).expect(HTML_ERROR);
+        html_try!(write!(&mut html, "<{}", tag));
 
         if !element.classes().is_empty() {
 
-            write!(&mut html, " class=\"").expect(HTML_ERROR);
+            html_try!(write!(&mut html, " class=\""));
             let mut classes_iter = element.classes().iter();
-            write!(&mut html, "{}", classes_iter.next().unwrap()).expect(HTML_ERROR);
+            html_try!(write!(&mut html, "{}", classes_iter.next().unwrap()));
 
             for class in classes_iter {
                 if !class.is_empty() {
-                    write!(&mut html, " {}", &*class).expect(HTML_ERROR);
+                    html_try!(write!(&mut html, " {}", &*class));
                 }
             }
-            write!(&mut html, "\"").expect(HTML_ERROR);
+            html_try!(write!(&mut html, "\""));
         }
 
         if !element.attributes().is_empty() {
             for (key, value) in element.attributes() {
                 if !key.is_empty() {
                     if !value.is_empty() {
-                        write!(&mut html, " {}=\"{}\"", key, value).expect(HTML_ERROR);
+                        html_try!(write!(&mut html, " {}=\"{}\"", key, value));
                     } else {
-                        write!(&mut html, " {}", key).expect(HTML_ERROR);
+                        html_try!(write!(&mut html, " {}", key));
                     }
                 }
             }
         }
 
-        write!(&mut html, ">").expect(HTML_ERROR);
+        html_try!(write!(&mut html, ">"));
 
 
         for void in &VOID_ELEMENTS {
             if void == &tag {
-                return Some(String::from_utf8(html).unwrap());
+                return match String::from_utf8(html) {
+                    Ok(html) => Ok(html),
+                    Err(error) => Err(CodegenError::FromUtf8Error(error)),
+                };
             }
         }
 
         if let Some(ref resource) = *element.resource() {
-            write!(&mut html,
-                   "{}",
-                   self.generate_from_component(resource.clone()))
-                .expect(HTML_ERROR);
+            match self.generate_from_component(resource.clone()) {
+                Ok(rendered) => html_try!(write!(&mut html, "{}", rendered)),
+                Err(err) => return Err(err),
+            }
+
 
         } else {
             for child in element.children() {
-                if let Some(rendered_child) = self.render(child) {
-                    write!(&mut html, "{}", rendered_child).expect(HTML_ERROR);
+                match self.render(child) {
+                    Ok(rendered) => {
+                        html_try!(write!(&mut html, "{}", rendered));
+                    }
+                    Err(error) => return Err(error),
                 }
             }
         }
 
-        write!(&mut html, "</{}>", tag).expect(HTML_ERROR);
+        html_try!(write!(&mut html, "</{}>", tag));
 
-        Some(String::from_utf8(html).unwrap())
+        match String::from_utf8(html) {
+            Ok(html) => Ok(html),
+            Err(error) => Err(CodegenError::FromUtf8Error(error)),
+        }
     }
 
-    fn render_error(&self, error: &AstError) -> Option<String> {
-        if *error == super::AstError::Eof {
-            return None;
-        }
-        let (index, token_length) = error.values();
-        let mut line_number: usize = 0;
-        let mut col_number: usize = 1;
-
-        for ch in self.source[..index].chars() {
-            col_number += 1;
-            if ch == '\n' {
-                line_number += 1;
-                col_number = 1;
-            }
-        }
-
-        let mut section = String::new();
-        for ch in self.source[..index].chars().rev() {
-            if ch == '\n' {
-                section = section.chars().rev().collect();
-                break;
-            } else {
-                section.push(ch);
-            }
-        }
-
-        for ch in self.source[index..].chars() {
-            if ch == '\n' {
-                break;
-            } else {
-                section.push(ch);
-            }
-        }
-        println!("");
-        let mut underline = String::from("^");
-
-        for _ in 1..token_length {
-            underline.push('~');
-        }
-        let file_name_print = format!("{}:{}:{}:", self.file, line_number, col_number);
-        println!("{} {}", file_name_print, error);
-        println!("{} {}", file_name_print, section.trim());
-        println!("{0:>1$}",
-                 underline,
-                 2 + col_number + file_name_print.len() - (section.len() - section.trim().len()));
-        exit!()
-    }
-
-    fn render_function(&self, function: &FunctionCall) -> Option<String> {
+    fn render_function(&self, function: &FunctionCall) -> CodegenResult {
         let mut arguments: BTreeMap<String, ArgValue> = BTreeMap::new();
 
         for (key, value) in function.args().clone() {
 
             match value {
                 ArgKey::Json(id) => {
-                    let real_value = self.variables.get(&*id);
-                    let real_value = match real_value {
-                        Some(value) => Some(value.clone()),
-                        None => None,
+                    let real_value = match self.get_variable(&id) {
+                        Ok(value) => value,
+                        Err(error) => return Err(error),
                     };
-                    arguments.insert(key, ArgValue::Json(real_value));
+                    arguments.insert(key, ArgValue::Json(Some(real_value)));
                 }
                 ArgKey::Comp(id) => {
                     let parent = self.parent.borrow();
@@ -275,35 +217,107 @@ impl Codegen {
         let parent = self.parent.borrow();
         if let Some(fun) = parent.get_function(function.identifier()) {
             match fun(arguments, &self.parent) {
-                Ok(string) => Some(string),
-                Err(error) => {
-                    println!("{}", error);
-                    exit!();
-                }
+                Ok(string) => Ok(string),
+                Err(error) => Err(CodegenError::FunctionError(error)),
             }
         } else {
-            println!("Function doesn't exist.");
-            exit!();
+            Err(CodegenError::NoSuchFunction(String::from(function.identifier())))
         }
     }
 
-    fn render(&self, token: &AstResult) -> Option<String> {
+    fn get_variable(&self, name: &String) -> Result<Value, CodegenError> {
+        let segments: Vec<&str> = name.split('.').collect();
+
+        if segments.len() == 1 {
+            match self.variables.get(name) {
+                Some(value) => Ok(value.clone()),
+                None => Ok(Value::String(String::new())),
+            }
+        } else {
+            match Value::Object(self.variables.clone()).find_path(&segments) {
+                Some(value) => return Ok(value.clone()),
+                _ => return Err(CodegenError::NotAnObjectOrNull(String::from(name.clone()))),
+
+            }
+        }
+    }
+
+    fn render(&self, token: &AstResult) -> CodegenResult {
         use super::Token::*;
         match *token {
             Ok(Html(ref element)) => self.render_element(element),
-            Ok(Text(ref text)) => Some(text.clone()),
+            Ok(Text(ref text)) => Ok(text.clone()),
             Ok(Variable(ref variable)) => {
-                match self.variables.get(variable) {
-                    Some(value) => Some(value_to_string(&value)),
-                    None => Some(String::new()),
+                match self.get_variable(variable) {
+                    Ok(value) => Ok(value_to_string(&value)),
+                    Err(error) => Err(error),
                 }
             }
             Ok(CompCall(ref component_call)) => {
-                Some(self.generate_from_component(component_call.clone()))
+                self.generate_from_component(component_call.clone())
             }
             Ok(Function(ref function)) => self.render_function(function),
-            Err(ref error) => self.render_error(error),
+            Err(ref error) => Err(CodegenError::AstError(error.clone())),
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum CodegenError {
+    AstError(AstError),
+    CompPassedToComp(String),
+    FromUtf8Error(string::FromUtf8Error),
+    FunctionError(String),
+    IoError(io::Error),
+    NoSuchComponent(String),
+    NoSuchFunction(String),
+    NotAnObjectOrNull(String),
+    WrongNumberOfArguments(usize, usize),
+}
+
+impl error::Error for CodegenError {
+    fn description(&self) -> &str {
+        use self::CodegenError::*;
+
+        match *self {
+            AstError(ref error) => error.description(),
+            CompPassedToComp(_) => {
+                "Currently you cannot cannot pass a component to another component: "
+            }
+            FromUtf8Error(ref error) => error.description(),
+            FunctionError(_) => "Function produced error: ",
+            IoError(ref error) => error.description(),
+            NoSuchComponent(_) => "Component called doesn't exist in the current template: ",
+            NoSuchFunction(_) => "Function called doesn't exist in the current template: ",
+            NotAnObjectOrNull(_) => "JSON passed in wasn't an object, or was null: ",
+            WrongNumberOfArguments(_, _) => "Incorrect number of arguments passed in: ",
+        }
+    }
+}
+
+impl fmt::Display for CodegenError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::CodegenError::*;
+        use std::error::Error;
+
+        let msg = match *self {
+            AstError(ref error) => format!("{}", error),
+            CompPassedToComp(ref name) => format!("{} NAME: {}", self.description(), name),
+            FromUtf8Error(ref error) => format!("{}", error),
+            FunctionError(ref error) => format!("{} ERROR: {}", self.description(), error),
+            IoError(ref error) => format!("{}", error),
+            NoSuchComponent(ref name) | NoSuchFunction(ref name) | NotAnObjectOrNull(ref name) => {
+                format!("{} NAME: {}", self.description(), name)
+            }
+            WrongNumberOfArguments(expected, actual) => {
+                format!("{} EXPECTED: {} ACTUAL: {}",
+                        self.description(),
+                        expected,
+                        actual)
+            }
+        };
+
+        write!(f, "{}", msg)
     }
 }
 

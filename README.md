@@ -3,16 +3,16 @@ A truly logic-less templating language for Rust servers.
 ## Canonical source
 The canonical source of this project is hosted on [GitLab](https://gitlab.com/Aaronepower/Polly), and is the preferred place for contributions, 
 however if you do not wish to use GitLab, feel free to make issues, on the mirror. However pull requests will only be accepted on GitLab, to make it easy
-to maintain
+to maintain.
 
 ## Quick-start
-A quick [tutorial is available on the website](https://aaronepower.github.io/Polly)
+[language reference](./GUIDE.md)
 
 ## Features
 - Zero logic in templates.
 - Powerful function interoperability with [Rust](https://github.com/rust-lang/rust).
 - Fast rendering.
-- Framework independent, use with any framework, or your own server code.
+- Framework independent, use with any server framework, or your own server code.
 - An easy way to have multilingual websites.
 
 ## Contributing

@@ -311,8 +311,6 @@ impl Parser {
                     get_children!(self.take(), element);
                     break;
                 }
-                Word(_, text) => element.add_text(text),
-
                 unexpected_token => return Err(UnexpectedToken(unexpected_token)),
             }
         }
