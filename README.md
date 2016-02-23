@@ -6,8 +6,9 @@ however if you do not wish to use GitLab, feel free to make issues, on the mirro
 to maintain.
 
 ## Quick-start
-[language reference](./GUIDE.md)
+**[language reference](./GUIDE.md)**
 
+**[documentation](http://aaronepower.github.io/Polly/polly/)**
 ## Features
 - Zero logic in templates.
 - Powerful function interoperability with [Rust](https://github.com/rust-lang/rust).
