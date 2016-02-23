@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Template` struct in crate `polly`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Template">
+
+    <title>polly::Template - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>polly</a></p><script>window.sidebarCurrent = {name: 'Template', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>polly</a>::<wbr><a class='struct' href=''>Template</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-1454' class='srclink' href='../src/polly/template.rs.html#306-313' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Template {
+    // some fields omitted
+}</pre><div class='docblock'><p>The Polly template.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../polly/struct.Template.html' title='polly::Template'>Template</a></code></h3><div class='impl-items'><h4 id='method.get_component' class='method'><code>fn <a href='#method.get_component' class='fnname'>get_component</a>(&amp;self, name: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;Component&gt;</code></h4>
+<div class='docblock'><p>Get a component from within the template.</p>
+</div><h4 id='method.get_function' class='method'><code>fn <a href='#method.get_function' class='fnname'>get_function</a>(&amp;self, name: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;<a class='type' href='../polly/type.PolyFn.html' title='polly::PolyFn'>PolyFn</a>&gt;</code></h4>
+<div class='docblock'><p>Get a function from within the template.</p>
+</div><h4 id='method.load' class='method'><code>fn <a href='#method.load' class='fnname'>load</a>&lt;P: <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt;&gt;(file_path: P) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;Self, <a class='enum' href='../polly/enum.TemplateError.html' title='polly::TemplateError'>TemplateError</a>&gt;</code></h4>
+<div class='docblock'><p>Loads the template from the file path.</p>
+</div><h4 id='method.no_locales' class='method'><code>fn <a href='#method.no_locales' class='fnname'>no_locales</a>(self) -&gt; Self</code></h4>
+<div class='docblock'><p>Specify that a template has no locales available.</p>
+</div><h4 id='method.load_from_source' class='method'><code>fn <a href='#method.load_from_source' class='fnname'>load_from_source</a>&lt;P: <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt;, S: <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html' title='core::convert::Into'>Into</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;&gt;(path: P, source: S) -&gt; Self</code></h4>
+<div class='docblock'><p>Loads the template from the source provided. The file path is also required, for error
+handling</p>
+</div><h4 id='method.json' class='method'><code>fn <a href='#method.json' class='fnname'>json</a>(self, json: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/btree/map/struct.BTreeMap.html' title='collections::btree::map::BTreeMap'>BTreeMap</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>, Value&gt;) -&gt; Self</code></h4>
+<div class='docblock'><p>Pass in a <code>serde_json</code> Object, for the JSON of the template.</p>
+</div><h4 id='method.locales_dir' class='method'><code>fn <a href='#method.locales_dir' class='fnname'>locales_dir</a>&lt;S: <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html' title='core::convert::Into'>Into</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;&gt;(self, locales_dir: S) -&gt; Self</code></h4>
+<div class='docblock'><p>Override the default locales directory.</p>
+</div><h4 id='method.register' class='method'><code>fn <a href='#method.register' class='fnname'>register</a>(&amp;mut self, name: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>, function: <a class='type' href='../polly/type.PolyFn.html' title='polly::PolyFn'>PolyFn</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a class='enum' href='../polly/enum.TemplateError.html' title='polly::TemplateError'>TemplateError</a>&gt;</code></h4>
+<div class='docblock'><p>Registers a function to the template.</p>
+</div><h4 id='method.import' class='method'><code>fn <a href='#method.import' class='fnname'>import</a>&lt;P: <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt;&gt;(&amp;mut self, path: P) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a class='enum' href='../polly/enum.TemplateError.html' title='polly::TemplateError'>TemplateError</a>&gt;</code></h4>
+<div class='docblock'><p>Imports components from another template.</p>
+</div><h4 id='method.render' class='method'><code>fn <a href='#method.render' class='fnname'>render</a>(self, lang: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>, <a class='enum' href='../polly/enum.TemplateError.html' title='polly::TemplateError'>TemplateError</a>&gt;</code></h4>
+<div class='docblock'><p>Renders the template into a HTML String.</p>
+</div><h4 id='method.unwrap_render' class='method'><code>fn <a href='#method.unwrap_render' class='fnname'>unwrap_render</a>(self, locale: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a></code></h4>
+<div class='docblock'><p>Renders the component, or panics if there is an error.</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "polly";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
