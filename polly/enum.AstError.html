@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `AstError` enum in crate `polly`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, AstError">
+
+    <title>polly::AstError - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>polly</a></p><script>window.sidebarCurrent = {name: 'AstError', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='index.html'>polly</a>::<wbr><a class='enum' href=''>AstError</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-748' class='srclink' href='../src/polly/compiler/tokens/ast.rs.html#25-52' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum AstError {
+    Eof,
+    ExpectedCompCall(Lexeme),
+    ExpectedVariable(Lexeme),
+    InvalidComponent(Lexeme),
+    InvalidElement(Lexeme),
+    InvalidFunctionCall(Lexeme),
+    InvalidTokenInAttributes(Lexeme),
+    NoNameAttachedToClass(Lexeme),
+    NoNameAttachedToId(Lexeme),
+    UnclosedCloseBraces(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>),
+    UnclosedOpenBraces(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>),
+    UnexpectedEof(Lexeme),
+    UnexpectedToken(Lexeme),
+}</pre><div class='docblock'><p>Errors defining all the errors that can be encountered while parsing.</p>
+</div><h2 class='variants'>Variants</h2>
+<table><tr><td id='variant.Eof'><code>Eof</code></td><td><div class='docblock'><p>End of File</p>
+</div></td></tr><tr><td id='variant.ExpectedCompCall'><code>ExpectedCompCall</code></td><td><div class='docblock'><p>Expected a Component name.</p>
+</div></td></tr><tr><td id='variant.ExpectedVariable'><code>ExpectedVariable</code></td><td><div class='docblock'><p>Expected a Variable name.</p>
+</div></td></tr><tr><td id='variant.InvalidComponent'><code>InvalidComponent</code></td><td><div class='docblock'><p>No name attached to component.</p>
+</div></td></tr><tr><td id='variant.InvalidElement'><code>InvalidElement</code></td><td><div class='docblock'><p>No name attached to element.</p>
+</div></td></tr><tr><td id='variant.InvalidFunctionCall'><code>InvalidFunctionCall</code></td><td><div class='docblock'><p>No name attached to function.</p>
+</div></td></tr><tr><td id='variant.InvalidTokenInAttributes'><code>InvalidTokenInAttributes</code></td><td><div class='docblock'><p>Token that isn&#39;t (, ), =, &quot;, &#39;, or a word.</p>
+</div></td></tr><tr><td id='variant.NoNameAttachedToClass'><code>NoNameAttachedToClass</code></td><td><div class='docblock'><p>Having a . without anything following it up.</p>
+</div></td></tr><tr><td id='variant.NoNameAttachedToId'><code>NoNameAttachedToId</code></td><td><div class='docblock'><p>Having a # without anything following it up.</p>
+</div></td></tr><tr><td id='variant.UnclosedCloseBraces'><code>UnclosedCloseBraces</code></td><td><div class='docblock'><p>Extra } braces</p>
+</div></td></tr><tr><td id='variant.UnclosedOpenBraces'><code>UnclosedOpenBraces</code></td><td><div class='docblock'><p>Extra { braces</p>
+</div></td></tr><tr><td id='variant.UnexpectedEof'><code>UnexpectedEof</code></td><td><div class='docblock'><p>File ended while we tried to parse element.</p>
+</div></td></tr><tr><td id='variant.UnexpectedToken'><code>UnexpectedToken</code></td><td><div class='docblock'><p>Unknown token</p>
+</div></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h3><div class='impl-items'><h4 id='method.values' class='method'><code>fn <a href='#method.values' class='fnname'>values</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>)</a></code></h4>
+<div class='docblock'><p>The length of a token, for error printing.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a> for <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h3><div class='impl-items'><h4 id='method.description' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#method.description' class='fnname'>description</a>(&amp;self) -&gt; &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a></code></h4>
+<h4 id='method.cause' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#method.cause' class='fnname'>cause</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;<a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../polly/enum.AstError.html' title='polly::AstError'>AstError</a></code></h3><div class='impl-items'><h4 id='method.fmt-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "polly";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
