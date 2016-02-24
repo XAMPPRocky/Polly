@@ -311,11 +311,11 @@ impl fmt::Display for CodegenError {
         use std::error::Error;
 
         let msg = match *self {
-            AstError(ref error) => format!("{}", error),
+            AstError(ref error) => error.to_string(),
             CompPassedToComp(ref name) => format!("{} NAME: {}", self.description(), name),
-            FromUtf8Error(ref error) => format!("{}", error),
+            FromUtf8Error(ref error) => error.to_string(),
             FunctionError(ref error) => format!("{} ERROR: {}", self.description(), error),
-            IoError(ref error) => format!("{}", error),
+            IoError(ref error) => error.to_string(),
             NoSuchComponent(ref name) | NoSuchFunction(ref name) | NotAnObjectOrNull(ref name) => {
                 format!("{} NAME: {}", self.description(), name)
             }
