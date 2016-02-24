@@ -1,12 +1,12 @@
 [package]
 name = "polly"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Aaronepower <theaaronepower@gmail.com>"]
 repository = "https://gitlab.com/Polly-lang/Polly.git"
 homepage = "https://polly-lang.github.io/Polly/polly/"
 license = "MIT/Apache-2.0"
 readme = "README.md"
-description = "Count lines of code within a directory, quickly."
+description = "A templating language for Rust."
 [lib]
 name = "polly"
 path = "src/lib.rs"
