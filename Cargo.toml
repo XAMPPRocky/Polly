@@ -1,6 +1,6 @@
 [package]
 name = "polly"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Aaronepower <theaaronepower@gmail.com>"]
 repository = "https://gitlab.com/Polly-lang/Polly.git"
 homepage = "https://polly-lang.github.io/Polly/polly/"
