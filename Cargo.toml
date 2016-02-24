@@ -2,7 +2,11 @@
 name = "polly"
 version = "0.1.0"
 authors = ["Aaronepower <theaaronepower@gmail.com>"]
-
+repository = "https://gitlab.com/Polly-lang/Polly.git"
+homepage = "https://polly-lang.github.io/Polly/polly/"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+description = "Count lines of code within a directory, quickly."
 [lib]
 name = "polly"
 path = "src/lib.rs"

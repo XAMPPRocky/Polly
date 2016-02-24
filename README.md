@@ -8,7 +8,8 @@ to maintain.
 ## Quick-start
 **[language reference](./GUIDE.md)**
 
-**[documentation](http://aaronepower.github.io/Polly/polly/)**
+**[documentation](https://polly-lang.github.io/Polly/polly/)**
+
 ## Features
 - Zero logic in templates.
 - Powerful function interoperability with [Rust](https://github.com/rust-lang/rust).
