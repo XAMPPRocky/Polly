@@ -11,8 +11,8 @@ use serde_json::Value;
 use compiler::{ArgValue, AstError, Codegen, CodegenError, CodegenResult, Component, Lexer, Parser};
 
 /// A type abstracting the functions used for Polly.
-pub type PolyFn = Box<Fn(BTreeMap<String, ArgValue>, &Rc<RefCell<Template>>)
-                         -> Result<String, String>>;
+pub type PollyFn = Box<Fn(BTreeMap<String, ArgValue>, &Rc<RefCell<Template>>)
+                          -> Result<String, String>>;
 
 macro_rules! template_try {
     ($result:expr) => {
@@ -158,11 +158,11 @@ macro_rules! template_try {
 ///      assert_eq!(template.json(json).no_locales().render("en").unwrap(), EXPECTED);
 /// }
 /// ```
-pub fn std_functions() -> HashMap<String, PolyFn> {
+pub fn std_functions() -> HashMap<String, PollyFn> {
     use serde_json::Value;
     use compiler::tokens::ArgValue::*;
 
-    let mut map: HashMap<String, PolyFn> = HashMap::new();
+    let mut map: HashMap<String, PollyFn> = HashMap::new();
 
     map.insert(String::from("std.each"), Box::new(|args, parent| {
         let mut output = String::new();
@@ -306,7 +306,7 @@ pub fn std_functions() -> HashMap<String, PolyFn> {
 pub struct Template {
     components: HashMap<String, Component>,
     file: PathBuf,
-    functions: HashMap<String, PolyFn>,
+    functions: HashMap<String, PollyFn>,
     source: String,
     locales_dir: Option<String>,
     variables: BTreeMap<String, Value>,
@@ -350,7 +350,7 @@ impl Template {
     }
 
     /// Get a function from within the template.
-    pub fn get_function(&self, name: &str) -> Option<&PolyFn> {
+    pub fn get_function(&self, name: &str) -> Option<&PollyFn> {
         self.functions.get(name)
     }
 
@@ -400,7 +400,7 @@ impl Template {
     }
 
     /// Registers a function to the template.
-    pub fn register(&mut self, name: String, function: PolyFn) -> Result<(), TemplateError> {
+    pub fn register(&mut self, name: String, function: PollyFn) -> Result<(), TemplateError> {
         if let Some(_) = self.functions.insert(name, function) {
             Err(TemplateError::PreDefinedFunction)
         } else {
