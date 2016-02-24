@@ -11,5 +11,5 @@ extern crate serde_json;
 mod compiler;
 mod template;
 
-pub use template::{PolyFn, std_functions, Template, TemplateError};
+pub use template::{PollyFn, std_functions, Template, TemplateError};
 pub use compiler::{ArgValue, AstError, CodegenError};
