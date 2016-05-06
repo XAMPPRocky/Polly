@@ -8,9 +8,7 @@ use super::operator::Operator;
 /// Words, and operator symbols.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Lexeme {
-    /// TODO
     Symbol(usize, Operator),
-    /// TODO
     Word(usize, String),
 }
 

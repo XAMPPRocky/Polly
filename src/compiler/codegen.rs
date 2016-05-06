@@ -69,7 +69,7 @@ impl Codegen {
                           arg_map: Option<BTreeMap<String, Value>>,
                           parent: &Rc<RefCell<Template>>)
                           -> CodegenResult {
-        let mut codegen = if let Some(arg_map) = arg_map {
+        if let Some(arg_map) = arg_map {
             Codegen {
                 elements: component.ast(),
                 variables: arg_map,
@@ -81,8 +81,8 @@ impl Codegen {
                 variables: BTreeMap::new(),
                 parent: parent.clone(),
             }
-        };
-        codegen.generate_html()
+        }
+        .generate_html()
     }
 
     fn generate_from_component(&self, component_call: ComponentCall) -> CodegenResult {
@@ -123,7 +123,7 @@ impl Codegen {
     fn render_element(&self, element: &Element) -> CodegenResult {
         use std::io::Write;
         let mut html = Vec::new();
-        let tag = &**element.tag();
+        let tag = element.tag();
         html_try!(write!(&mut html, "<{}", tag));
 
         if !element.classes().is_empty() {

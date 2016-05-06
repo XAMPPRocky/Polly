@@ -24,8 +24,8 @@ impl Element {
         }
     }
 
-    pub fn tag(&self) -> &String {
-        &self.tag
+    pub fn tag(&self) -> &str {
+        &*self.tag
     }
 
     pub fn classes(&self) -> &Vec<String> {

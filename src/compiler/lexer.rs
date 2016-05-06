@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn ignore_spaces() {
-        let lexer = Lexer::new(" \t   ");
+        let lexer = Lexer::new(" \t\n   ");
 
         assert_eq!(lexer.output(), vec![]);
     }

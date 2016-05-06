@@ -7,7 +7,8 @@ use super::tokens::AstError::*;
 use super::tokens::Lexeme::*;
 use super::tokens::Operator::*;
 use super::tokens::Token::*;
-/// Shortens Result<T, AstError> to Result<T>.
+
+/// Shortens Result type
 pub type AstResult = Result<Token, AstError>;
 
 macro_rules! unexpected_eof {
