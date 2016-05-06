@@ -137,7 +137,7 @@ Components are simply reusable blocks of markup. Components can be passed in var
 ```
 
 ## Locales
-One of the key features of Polly is easy localisation. This is done using components. Polly achieves that by making use of an implied directory sturcture. So currently you're Polly codebase would look like the following. In the Rust API, you can then specify which you want to render so calling `template.render("en")` would generate the English version of the website, and `template.render("de")` will render the German version, etc. Where the locales are located, or the requirement for having locales can be overwritten, if desired. The example shown below is a trivial example, but since components can be more than just text, you can have it so different locales get totally different content, or CSS rules, so you could have it in your text in English is left-aligned, where when it is in Arabic, it is right-aligned.
+One of the key features of Polly is easy localisation. This is done using components. Polly achieves that by making use of an implied directory sturcture. So currently your Polly codebase would look like the following. In the Rust API, you can then specify which you want to render so calling `template.render("en")` would generate the English version of the website, and `template.render("de")` will render the German version, etc. Where the locales are located, or the requirement for having locales can be overwritten, if desired. The example shown below is a trivial example, but since components can be more than just text, you can have it so different locales get totally different content, or CSS rules, so you could have it in your text in English is left-aligned, where when it is in Arabic, it is right-aligned.
 
 ```
 templates/
